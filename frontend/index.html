@@ -1,549 +1,201 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Kindred — Bridging the Talent Gap</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <!-- Google Identity Services -->
-  <script src="https://accounts.google.com/gsi/client" async defer></script>
-</head>
-<body>
-  <!-- Hero Section with Canvas Hands Background -->
-  <section class="hero">
-    <!-- Matrix dot canvas -->
-    <canvas id="dots"></canvas>
-
-    <!-- Navigation -->
-    <nav>
-      <a href="#" class="brand" aria-label="Kindred Home">
-        <svg viewBox="0 0 16 18">
-          <path d="M2 0h4v18H2zM7 9c3-1 5-4 6-9h3c-1 5-3 8-6 9 3 1 5 4 6 9h-3c-1-5-3-8-6-9z"/>
-        </svg>
-        <span>Kindred</span>
-      </a>
-
-      <ul class="nav-links">
-        <li><a href="#discovery">Explore</a></li>
-        <li><a href="#groups">Teams</a></li>
-        <li><a href="#platform">Platform</a></li>
-        <li><a href="#marketplace">Marketplace</a></li>
-        <li><a href="#creators">Creators</a></li>
-        <li><a href="#resources">Resources</a></li>
-      </ul>
-
-      <div class="nav-actions">
-        <button type="button" class="btn-create-profile" id="openCreateProfileNavBtn">Create Profile</button>
-        <button type="button" class="btn-google-auth" id="googleAuthNavBtn" aria-label="Sign In with Google">
-          <svg class="google-icon" viewBox="0 0 24 24" width="16" height="16">
-            <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-            <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-            <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
-            <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
-          </svg>
-          <span>Sign In with Google</span>
-        </button>
-        <div class="user-profile-badge" id="userProfileBadge" style="display: none;">
-          <img class="user-avatar-img" id="userAvatarImg" src="" alt="Google avatar" style="display: none;" />
-          <span class="user-avatar-dot" id="userAvatarDot"></span>
-          <span class="user-display-name" id="userDisplayName">User</span>
-          <button type="button" class="btn-signout" id="signOutBtn" title="Sign Out">Sign Out</button>
-        </div>
-      </div>
-    </nav>
-
-    <!-- Centered Copy Block -->
-    <div class="copy">
-      <h1>
-        <span class="line-1">Bridging the</span>
-        <span class="line-2">Talent Gap.</span>
-      </h1>
-      <p class="subline">Connecting quiet builders to the teams and opportunities that need them.</p>
-
-      <!-- Minimal Search Bar with Search Icon & Microphone -->
-      <div class="search-bar-container">
-        <div class="search-bar" id="heroSearchBar">
-          <button type="button" class="search-icon-btn" id="searchSubmitBtn" aria-label="Search" title="Search">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="11" cy="11" r="8"/>
-              <line x1="21" y1="21" x2="16.65" y2="16.65"/>
-            </svg>
-          </button>
-          <input
-            type="text"
-            id="candidateSearchInput"
-            class="search-input"
-            placeholder="Find talent by skill (e.g. C++ DSA developer)..."
-            autocomplete="off"
-            spellcheck="false"
-          />
-          <button type="button" class="clear-search-btn" id="clearInputBtn" aria-label="Clear search" title="Clear">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <line x1="18" y1="6" x2="6" y2="18"/>
-              <line x1="6" y1="6" x2="18" y2="18"/>
-            </svg>
-          </button>
-          <button type="button" class="mic-button" id="voiceMicBtn" aria-label="Search by voice" title="Search by voice">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
-              <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
-              <line x1="12" y1="19" x2="12" y2="23"/>
-              <line x1="8" y1="23" x2="16" y2="23"/>
-            </svg>
-            <span class="mic-ping-ring"></span>
-          </button>
-        </div>
-        <div class="speech-feedback" id="voiceFeedback">Listening... speak skill or role</div>
-      </div>
-      
-      <!-- Rainbow Glow CTA Button -->
-      <div class="cta-wrapper">
-        <div class="cta-glow"></div>
-        <a href="#discovery" class="cta-btn" id="mainCtaBtn">Join the circle</a>
-      </div>
-    </div>
-
-    <!-- Partner Logos -->
-    <div class="logos">
-      <div class="logo-item">
-        <svg viewBox="0 0 20 20"><path d="M3 15c0-7 5-12 14-12-1 9-6 14-13 13l-1 2-2-1z"/></svg>
-        <span>Lumenix</span>
-      </div>
-      <div class="logo-item">
-        <svg viewBox="0 0 20 20"><path d="M10 1l8 4.5v9L10 19l-8-4.5v-9zM10 6l-4 2.3v4.4L10 15l4-2.3V8.3z"/></svg>
-        <span>Velora</span>
-      </div>
-      <div class="logo-item">
-        <svg viewBox="0 0 20 20"><path d="M1 5q4.5-3 9 0t9 0v3q-4.5 3-9 0t-9 0zm0 7q4.5-3 9 0t9 0v3q-4.5 3-9 0t-9 0z"/></svg>
-        <span>Nimbus</span>
-      </div>
-      <div class="logo-item">
-        <svg viewBox="0 0 20 20"><path d="M10 1a9 9 0 110 18 9 9 0 010-18zm0 3a6 6 0 100 12 6 6 0 000-12zm0 3a3 3 0 110 6 3 3 0 010-6z"/></svg>
-        <span>Quanta</span>
-      </div>
-      <div class="logo-item">
-        <svg viewBox="0 0 20 20"><path d="M1 17L7 6l3 5 3-7 6 13z"/></svg>
-        <span>Solstice</span>
-      </div>
-      <div class="logo-item">
-        <svg viewBox="0 0 20 20"><path d="M10 1l9 4-9 4-9-4zm-9 8l9 4 9-4v3l-9 4-9-4zm0 5l9 4 9-4v2l-9 4-9-4z"/></svg>
-        <span>Parallax</span>
-      </div>
-    </div>
-  </section>
-
-  <!-- Below-the-Fold Discovery Section (on scroll) -->
-  <section class="discovery-section" id="discovery">
-    <div class="discovery-container">
-      <div class="discovery-header">
-        <div class="discovery-pill-tag">
-          <span class="dot-live"></span>
-          <span>Verified Builders Network</span>
-        </div>
-        <h2 class="discovery-title">Discover Quiet Builders</h2>
-        <p class="discovery-sub">
-          High-agency developers, competitive programmers, and designers who let proof of work speak for itself.
-        </p>
-
-        <!-- Discovery Toolbar -->
-        <div class="discovery-toolbar">
-          <div class="results-status" id="resultsStatusText">
-            Showing all candidates
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="Find complementary student builders through real skills and proof of work."
+    />
+    <title>Kindred — Bridging the Talent Gap</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+  </head>
+  <body>
+    <section class="hero">
+      <canvas id="dots" aria-hidden="true"></canvas>
+      <nav aria-label="Main navigation">
+        <a href="#" class="brand">Kindred<span class="brand-dot">✳</span></a>
+        <a href="#discovery" class="explore-link">Explore builders</a>
+        <div class="nav-actions">
+          <button id="create-profile">Create Profile</button>
+          <div id="google-signin">
+            <span class="muted">Loading Google sign-in…</span>
           </div>
-          <div class="toolbar-controls">
-            <div class="filter-chips">
-              <span class="filter-chips-label">Quick filter:</span>
-              <button type="button" class="filter-chip active" data-filter="">All</button>
-              <button type="button" class="filter-chip" data-filter="C++">C++</button>
-              <button type="button" class="filter-chip" data-filter="DSA">DSA</button>
-              <button type="button" class="filter-chip" data-filter="Backend">Backend</button>
-              <button type="button" class="filter-chip" data-filter="React">React</button>
-              <button type="button" class="filter-chip" data-filter="LeetCode">LeetCode</button>
-            </div>
-            <button type="button" class="btn-publish-profile-trigger" id="openCreateProfileHeroBtn">
-              <svg viewBox="0 0 20 20" width="14" height="14" fill="currentColor">
-                <path d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z"/>
+          <div id="account" hidden>
+            <img id="avatar" alt="" referrerpolicy="no-referrer" /><span
+              id="account-name"
+            ></span
+            ><button
+              id="notifications-toggle"
+              aria-expanded="false"
+              aria-controls="notifications"
+              aria-label="Notifications"
+            >
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.7"
+                aria-hidden="true"
+              >
+                <path
+                  d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"
+                />
               </svg>
-              <span>+ Create Profile</span>
+              <span id="unread">0</span></button
+            ><button id="signout">Sign Out</button>
+          </div>
+        </div>
+      </nav>
+      <div class="copy">
+        <p class="eyebrow">LESS NOISE. MORE BUILDING.</p>
+        <h1>Bridging the<br /><span>Talent Gap.</span></h1>
+        <p class="subline">
+          Connecting quiet builders to the teams<br />and opportunities that
+          need them.
+        </p>
+        <form id="search-form" role="search">
+          <input
+            id="search"
+            aria-label="Search builders by skill or role"
+            placeholder="Find your missing skill. React, C++, design…"
+            maxlength="100"
+          /><button aria-label="Search builders">↗</button>
+        </form>
+        <a class="primary hero-cta" href="#discovery"
+          >Find your people <span>↗</span></a
+        >
+      </div>
+      <div class="hero-caption">
+        <span>REAL SKILLS. REAL CONNECTIONS.</span
+        ><a href="#discovery">Discover the community ↓</a>
+      </div>
+    </section>
+    <main>
+      <section id="discovery" class="section">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">THE BUILDER DIRECTORY</p>
+            <h2>Discover Quiet Builders</h2>
+            <p class="muted">Let your work start the conversation.</p>
+          </div>
+          <div class="toolbar">
+            <button id="show-all">All builders</button
+            ><button id="match" class="primary">
+              Find complementary teammates ✳
             </button>
           </div>
         </div>
-      </div>
-
-      <!-- Candidate Cards Grid -->
-      <div class="candidates-grid" id="candidatesGrid">
-        <!-- Rendered dynamically from MongoDB live API -->
-      </div>
-
-      <!-- Empty State View -->
-      <div class="empty-state" id="emptyStateView" style="display: none;">
-        <div class="empty-icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="11" cy="11" r="8"/>
-            <line x1="21" y1="21" x2="16.65" y2="16.65"/>
-            <line x1="8" y1="11" x2="14" y2="11"/>
-          </svg>
-        </div>
-        <h3 class="empty-title">No candidate matches found</h3>
-        <p class="empty-desc">
-          We couldn't find any quiet builders matching "<strong id="emptyQueryDisplay"></strong>". Try searching for skills like <strong>C++</strong>, <strong>DSA</strong>, <strong>Backend</strong>, or <strong>React</strong>.
+        <p id="directory-status" role="status"></p>
+        <div id="profiles" class="cards" aria-live="polite"></div>
+      </section>
+      <section id="connections-section" class="section" hidden>
+        <p class="eyebrow">BUILD SOMETHING TOGETHER</p>
+        <h2>Your connections</h2>
+        <p class="muted">
+          Contact details are shared after an invitation is accepted.
         </p>
-        <button type="button" class="btn-reset-filter" id="resetSearchBtn">Reset Filters</button>
-      </div>
-    </div>
-  </section>
-
-  <!-- Group & Team Matchmaking Board -->
-  <section class="groups-section" id="groups">
-    <div class="groups-container">
-      <div class="groups-header">
-        <div class="groups-pill-tag">
-          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
-            <circle cx="9" cy="7" r="4"></circle>
-            <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
-            <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
-          </svg>
-          <span>Team Matchmaking</span>
+        <div id="connections" class="cards"></div>
+      </section>
+    </main>
+    <footer>
+      Kindred <span>Built for builders. Powered by proof of work.</span>
+    </footer>
+    <dialog id="profile-dialog" aria-labelledby="profile-title">
+      <div class="dialog-heading">
+        <div>
+          <p class="eyebrow">LET YOUR WORK SPEAK</p>
+          <h2 id="profile-title">Create Your Builder Profile</h2>
         </div>
-        <h2 class="groups-title">Active Developer Groups &amp; Hackathon Teams</h2>
-        <p class="groups-sub">
-          Cross-functional squads actively recruiting quiet builders to build high-agency projects.
-        </p>
-
-        <!-- Create Group Action Trigger -->
-        <div class="groups-actions-row">
-          <button type="button" class="btn-create-group" id="openCreateGroupBtn">
-            <svg viewBox="0 0 20 20" width="14" height="14" fill="currentColor">
-              <path d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z"/>
-            </svg>
-            <span id="createGroupBtnText">+ Create Team (Profile Required)</span>
-          </button>
-        </div>
-      </div>
-
-      <!-- Groups Cards Grid -->
-      <div class="groups-grid" id="groupsGrid">
-        <!-- Rendered dynamically from MongoDB live API -->
-      </div>
-    </div>
-  </section>
-
-  <!-- Clean Minimalist Invitation Modal -->
-  <div class="modal-overlay" id="inviteModalOverlay" role="dialog" aria-modal="true" aria-labelledby="modalHeading">
-    <div class="modal-card">
-      <div class="modal-header">
-        <h3 class="modal-title" id="modalHeading">Send Invitation</h3>
-        <button type="button" class="modal-close-btn" id="closeModalBtn" aria-label="Close modal">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <line x1="18" y1="6" x2="6" y2="18"/>
-            <line x1="6" y1="6" x2="18" y2="18"/>
-          </svg>
+        <button
+          type="button"
+          id="close-profile"
+          aria-label="Close profile form"
+        >
+          ×
         </button>
       </div>
-
-      <form id="inviteForm">
-        <div class="modal-body">
-          <div class="modal-candidate-badge" id="modalCandidateBadge">
-            <div class="modal-avatar" id="modalCandidateAvatar">P</div>
-            <div class="modal-cand-info">
-              <h4 id="modalCandidateName">Priyam</h4>
-              <p id="modalCandidateSub">C++, DSA, Backend • 350+ LeetCode solved</p>
-            </div>
-          </div>
-
-          <div class="form-field">
-            <label for="inviteRoleSelect" class="form-label">Role for Candidate</label>
-            <div class="select-container">
-              <select id="inviteRoleSelect" class="form-select">
-                <option value="Backend C++ Developer" selected>Backend C++ Developer</option>
-                <option value="Frontend UI Specialist">Frontend UI Specialist</option>
-                <option value="Full Stack Engineer">Full Stack Engineer</option>
-                <option value="Algorithms & Systems Specialist">Algorithms & Systems Specialist</option>
-                <option value="AI / ML Engineer">AI / ML Engineer</option>
-              </select>
-            </div>
-            <span class="form-helper">Role: Backend C++ Developer (default)</span>
-          </div>
-
-          <div class="form-field">
-            <label for="inviteMessageInput" class="form-label">Team Note / Pitch (Optional)</label>
-            <textarea
-              id="inviteMessageInput"
-              class="form-textarea"
-              placeholder="Hi! We love your proof of work and would be thrilled to have your expertise on our project team."
-            ></textarea>
-          </div>
+      <form id="profile-form">
+        <p id="profile-auth-hint" class="muted"></p>
+        <label
+          >Full Name<input
+            name="fullName"
+            required
+            maxlength="100"
+            autocomplete="name"
+        /></label>
+        <label
+          >Role Tag / Title<input
+            name="roleTag"
+            required
+            maxlength="100"
+            placeholder="Systems & Backend C++"
+        /></label>
+        <label
+          >Skills <span class="muted">— comma separated</span
+          ><input
+            name="skills"
+            required
+            maxlength="1529"
+            placeholder="C++, Go, React, Docker"
+        /></label>
+        <label
+          >Proof of Work Summary<textarea
+            name="proofOfWork"
+            required
+            maxlength="1500"
+            rows="3"
+            placeholder="What have you built or achieved?"
+          ></textarea>
+        </label>
+        <label
+          >Availability<select name="availabilityStatus">
+            <option>Open to Hackathons & Dev Groups</option>
+            <option>Building Solo</option>
+            <option>Exploring</option>
+          </select></label
+        >
+        <div class="form-row">
+          <label
+            >GitHub URL<input
+              name="githubUrl"
+              type="url"
+              maxlength="2048"
+              placeholder="https://github.com/you" /></label
+          ><label
+            >Portfolio / LeetCode URL<input
+              name="portfolioUrl"
+              type="url"
+              maxlength="2048"
+              placeholder="https://"
+          /></label>
         </div>
-
-        <div class="modal-footer">
-          <button type="button" class="btn-modal-cancel" id="cancelModalBtn">Cancel</button>
-          <button type="submit" class="btn-modal-send" id="submitInviteBtn">
-            <span>Send Invite</span>
-            <svg viewBox="0 0 20 20" width="15" height="15" fill="currentColor">
-              <path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z"/>
-            </svg>
-          </button>
+        <p id="profile-error" class="error" role="alert"></p>
+        <div class="dialog-footer">
+          <button type="button" id="cancel-profile">Cancel</button
+          ><button class="primary" id="publish">Publish Profile</button>
         </div>
       </form>
-    </div>
-  </div>
-
-  <!-- Create Your Profile Modal -->
-  <div class="modal-overlay" id="createProfileModalOverlay" role="dialog" aria-modal="true" aria-labelledby="createProfileTitle">
-    <div class="modal-card">
-      <div class="modal-header">
-        <div class="modal-title-group">
-          <h3 id="createProfileTitle">Create Your Builder Profile</h3>
-          <p>Let your proof of work speak for itself — join the quiet builders network.</p>
-        </div>
-        <button type="button" class="modal-close-btn" id="closeCreateProfileModalBtn" aria-label="Close modal">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <line x1="18" y1="6" x2="6" y2="18"/>
-            <line x1="6" y1="6" x2="18" y2="18"/>
-          </svg>
+    </dialog>
+    <dialog id="notifications" aria-labelledby="notifications-title">
+      <div class="dialog-heading">
+        <h2 id="notifications-title">Notifications</h2>
+        <button id="close-notifications" aria-label="Close notifications">
+          ×
         </button>
       </div>
-
-      <form id="createProfileForm">
-        <div class="modal-body">
-          <div class="form-row-2">
-            <div class="form-field">
-              <label for="profNameInput" class="form-label">Full Name <span class="required-star">*</span></label>
-              <input type="text" id="profNameInput" class="form-input" placeholder="e.g. Priyam Roy" required />
-            </div>
-            <div class="form-field">
-              <label for="profRoleTagInput" class="form-label">Role Tag / Title</label>
-              <input type="text" id="profRoleTagInput" class="form-input" placeholder="e.g. Backend C++ Engineer" />
-            </div>
-          </div>
-
-          <div class="form-field">
-            <label for="profSkillsInput" class="form-label">Skills (comma separated)</label>
-            <input type="text" id="profSkillsInput" class="form-input" placeholder="e.g. C++, DSA, Rust, Node.js" />
-            <span class="form-helper">Separate skills with commas (e.g. C++, DSA, Backend)</span>
-          </div>
-
-          <div class="form-field">
-            <label for="profProofInput" class="form-label">Proof of Work Summary</label>
-            <input type="text" id="profProofInput" class="form-input" placeholder="e.g. 350+ LeetCode solved | Built Monolith Banking CLI" />
-            <span class="form-helper">Highlight key metrics, deployed links, or competitive ranking</span>
-          </div>
-
-          <div class="form-field">
-            <label for="profAvailabilitySelect" class="form-label">Availability Status</label>
-            <div class="select-container">
-              <select id="profAvailabilitySelect" class="form-select">
-                <option value="Open to Hackathon Teams & Dev Groups" selected>Open to Hackathon Teams & Dev Groups</option>
-                <option value="Looking for Backend / Systems Internship">Looking for Backend / Systems Internship</option>
-                <option value="Open for Open-Source Collaboration">Open for Open-Source Collaboration</option>
-                <option value="Available for Full-Time Roles">Available for Full-Time Roles</option>
-              </select>
-            </div>
-          </div>
-
-          <!-- Resume File Upload Dropzone -->
-          <div class="form-field">
-            <label class="form-label">Resume / CV (.pdf, .docx)</label>
-            <div class="resume-dropzone" id="resumeDropzone">
-              <input type="file" id="resumeFileInput" class="resume-file-input" accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" />
-              <div class="dropzone-inner">
-                <svg class="dropzone-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                  <polyline points="17 8 12 3 7 8"></polyline>
-                  <line x1="12" y1="3" x2="12" y2="15"></line>
-                </svg>
-                <span class="dropzone-title">Click to upload or drag resume here</span>
-                <span class="dropzone-hint">PDF or DOCX format (Max 10MB)</span>
-              </div>
-            </div>
-            <div id="resumePreviewWrap" style="display: none;">
-              <div class="resume-file-badge">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                  <polyline points="14 2 14 8 20 8"></polyline>
-                </svg>
-                <span id="resumeFileNameSpan">resume.pdf</span>
-                <button type="button" class="btn-remove-resume" id="removeResumeBtn" title="Remove resume file">&times;</button>
-              </div>
-            </div>
-          </div>
-
-          <div class="form-row-2">
-            <div class="form-field">
-              <label for="profGithubInput" class="form-label">GitHub URL (Optional)</label>
-              <input type="url" id="profGithubInput" class="form-input" placeholder="https://github.com/username" />
-            </div>
-            <div class="form-field">
-              <label for="profPortfolioInput" class="form-label">Portfolio / Profile Link (Optional)</label>
-              <input type="url" id="profPortfolioInput" class="form-input" placeholder="https://leetcode.com/username" />
-            </div>
-          </div>
-        </div>
-
-        <div class="modal-footer">
-          <button type="button" class="btn-modal-cancel" id="cancelCreateProfileBtn">Cancel</button>
-          <button type="submit" class="btn-modal-send">
-            <span>Publish Profile</span>
-            <svg viewBox="0 0 20 20" width="15" height="15" fill="currentColor">
-              <path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z"/>
-            </svg>
-          </button>
-        </div>
-      </form>
-    </div>
-  </div>
-
-  <!-- Auth Modal (Unified Google OAuth & Credentials) -->
-  <div class="modal-overlay" id="authModalOverlay" role="dialog" aria-modal="true" aria-labelledby="authModalTitle">
-    <div class="modal-card">
-      <div class="modal-header">
-        <div class="modal-title-group">
-          <h3 id="authModalTitle">Welcome to Kindred</h3>
-          <p>Sign in with Google to publish profiles and lead hackathon teams.</p>
-        </div>
-        <button type="button" class="modal-close-btn" id="closeAuthModalBtn" aria-label="Close modal">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <line x1="18" y1="6" x2="6" y2="18"/>
-            <line x1="6" y1="6" x2="18" y2="18"/>
-          </svg>
-        </button>
-      </div>
-
-      <div class="modal-body">
-        <!-- Unified Primary Google Auth Button -->
-        <button type="button" class="btn-google-primary" id="googleModalActionBtn">
-          <svg viewBox="0 0 24 24" width="18" height="18">
-            <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-            <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-            <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
-            <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
-          </svg>
-          <span>Continue with Google</span>
-        </button>
-        <p class="google-auth-notice">
-          Auto Account Creation: If signing in for the first time, your Kindred builder account is created automatically in MongoDB.
-        </p>
-
-        <div class="auth-divider">
-          <span>or sign in with email</span>
-        </div>
-
-        <!-- Auth Tabs -->
-        <div class="auth-tabs">
-          <button type="button" class="auth-tab active" id="authTabSignin">Sign In</button>
-          <button type="button" class="auth-tab" id="authTabSignup">Create Account</button>
-        </div>
-
-        <!-- Sign In Form -->
-        <form id="signinForm">
-          <div class="form-field">
-            <label for="signinEmail" class="form-label">Email Address</label>
-            <input type="email" id="signinEmail" class="form-input" placeholder="name@domain.com" required autocomplete="email" />
-          </div>
-          <div class="form-field">
-            <label for="signinPassword" class="form-label">Password</label>
-            <input type="password" id="signinPassword" class="form-input" placeholder="••••••••" required autocomplete="current-password" />
-          </div>
-          <button type="submit" class="btn-modal-send" style="width: 100%; justify-content: center; margin-top: 10px;">
-            <span>Sign In</span>
-          </button>
-        </form>
-
-        <!-- Sign Up Form (hidden by default) -->
-        <form id="signupForm" style="display: none;">
-          <div class="form-field">
-            <label for="signupName" class="form-label">Full Name</label>
-            <input type="text" id="signupName" class="form-input" placeholder="e.g. Priyam Roy" required autocomplete="name" />
-          </div>
-          <div class="form-field">
-            <label for="signupEmail" class="form-label">Email Address</label>
-            <input type="email" id="signupEmail" class="form-input" placeholder="name@domain.com" required autocomplete="email" />
-          </div>
-          <div class="form-field">
-            <label for="signupPassword" class="form-label">Password</label>
-            <input type="password" id="signupPassword" class="form-input" placeholder="At least 6 characters" minlength="6" required autocomplete="new-password" />
-          </div>
-          <button type="submit" class="btn-modal-send" style="width: 100%; justify-content: center; margin-top: 10px;">
-            <span>Create Account</span>
-          </button>
-        </form>
-      </div>
-
-      <div class="modal-footer">
-        <button type="button" class="btn-modal-cancel" id="cancelAuthModalBtn">Close</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Create Hackathon Team / Group Modal -->
-  <div class="modal-overlay" id="createGroupModalOverlay" role="dialog" aria-modal="true" aria-labelledby="createGroupModalTitle">
-    <div class="modal-card">
-      <div class="modal-header">
-        <div class="modal-title-group">
-          <h3 id="createGroupModalTitle">Create Hackathon Team</h3>
-          <p>Assemble your squad of quiet builders and hackathon specialists.</p>
-        </div>
-        <button type="button" class="modal-close-btn" id="closeCreateGroupModalBtn" aria-label="Close modal">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <line x1="18" y1="6" x2="6" y2="18"/>
-            <line x1="6" y1="6" x2="18" y2="18"/>
-          </svg>
-        </button>
-      </div>
-
-      <form id="createGroupForm">
-        <div class="modal-body">
-          <div class="form-field">
-            <label for="groupNameInput" class="form-label">Team / Squad Name <span class="required-star">*</span></label>
-            <input type="text" id="groupNameInput" class="form-input" placeholder="e.g. Quantum AI Hackers" required />
-          </div>
-
-          <div class="form-row-2">
-            <div class="form-field">
-              <label for="groupSeekingInput" class="form-label">Seeking Role <span class="required-star">*</span></label>
-              <input type="text" id="groupSeekingInput" class="form-input" placeholder="e.g. 1 C++ / Systems Builder" required />
-            </div>
-            <div class="form-field">
-              <label for="groupMaxMembersInput" class="form-label">Team Capacity</label>
-              <input type="number" id="groupMaxMembersInput" class="form-input" min="2" max="10" value="4" />
-            </div>
-          </div>
-
-          <div class="form-field">
-            <label for="groupProjectInput" class="form-label">Project Pitch / Vision <span class="required-star">*</span></label>
-            <textarea id="groupProjectInput" class="form-textarea" placeholder="Explain what you are building, the problem space, and tech architecture." required></textarea>
-          </div>
-
-          <div class="form-field">
-            <label for="groupTagsInput" class="form-label">Tech Tags (comma separated)</label>
-            <input type="text" id="groupTagsInput" class="form-input" placeholder="e.g. C++, Low-Latency, Distributed Systems" />
-          </div>
-        </div>
-
-        <div class="modal-footer">
-          <button type="button" class="btn-modal-cancel" id="cancelCreateGroupModalBtn">Cancel</button>
-          <button type="submit" class="btn-modal-send">
-            <span>Publish Team</span>
-            <svg viewBox="0 0 20 20" width="15" height="15" fill="currentColor">
-              <path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z"/>
-            </svg>
-          </button>
-        </div>
-      </form>
-    </div>
-  </div>
-
-  <!-- Toast Container -->
-  <div class="toast-tray" id="toastTray" aria-live="polite"></div>
-
-  <!-- Page Footer -->
-  <footer class="page-footer">
-    <p>Kindred © 2026 — Bridging the gap between quiet builders and project leaders.</p>
-  </footer>
-
-  <script type="module" src="/src/main.js"></script>
-</body>
+      <p id="notification-status" role="status"></p>
+      <div id="notification-list"></div>
+    </dialog>
+    <div id="toast" role="status" hidden></div>
+    <script type="module" src="/src/main.js"></script>
+  </body>
 </html>
