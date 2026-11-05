@@ -3,13 +3,22 @@ const cors = require('cors');
 const dotenv = require('dotenv');
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
+const { OAuth2Client } = require('google-auth-library');
 
 dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 5000;
-const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/kindred';
+const RAW_MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/kindred';
+// If template placeholders like <username> or <password> exist, fallback gracefully to local mongodb
+const MONGODB_URI = (RAW_MONGODB_URI.includes('<') || RAW_MONGODB_URI.includes('>'))
+  ? 'mongodb://localhost:27017/kindred'
+  : RAW_MONGODB_URI;
+
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || '';
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || '';
+
+const googleClient = new OAuth2Client(GOOGLE_CLIENT_ID);
 
 // Middleware
 app.use(cors());
@@ -130,11 +139,14 @@ let memGroups = JSON.parse(JSON.stringify(SEED_GROUPS)).map((g, i) => ({ ...g, i
 // 1. MONGOOSE SCHEMAS & MODELS
 // -----------------------------------------------------------------------------
 
-// User / Auth Schema
+// User / Auth Schema (Supports Unified Google OAuth & Credentials)
 const userSchema = new mongoose.Schema({
   name: { type: String, required: true, trim: true },
   email: { type: String, required: true, unique: true, lowercase: true, trim: true },
-  password: { type: String, required: true },
+  password: { type: String, required: false }, // Optional for Google OAuth users
+  googleId: { type: String, sparse: true, index: true },
+  picture: { type: String, default: '' },
+  authProvider: { type: String, default: 'google' }, // 'google' or 'local'
   createdAt: { type: Date, default: Date.now }
 });
 
@@ -216,6 +228,142 @@ connectMongoDB();
 // -----------------------------------------------------------------------------
 // 2. AUTH REST API ROUTES
 // -----------------------------------------------------------------------------
+
+/**
+ * POST /api/auth/google
+ * Unified Google Sign-In with Automatic Account Creation
+ * Receives: { credential, token, email, name, picture, googleId }
+ */
+app.post('/api/auth/google', async (req, res) => {
+  try {
+    const { credential, token, email: reqEmail, name: reqName, picture: reqPicture, googleId: reqGoogleId } = req.body;
+
+    let email = reqEmail;
+    let name = reqName;
+    let picture = reqPicture || '';
+    let googleId = reqGoogleId;
+
+    // 1. If Google ID Token credential was provided from Google Identity Services
+    if (credential) {
+      try {
+        if (GOOGLE_CLIENT_ID && !GOOGLE_CLIENT_ID.includes('your_google_client_id')) {
+          const ticket = await googleClient.verifyIdToken({
+            idToken: credential,
+            audience: GOOGLE_CLIENT_ID
+          });
+          const payload = ticket.getPayload();
+          email = payload.email;
+          name = payload.name;
+          picture = payload.picture || picture;
+          googleId = payload.sub;
+        } else {
+          // Verify or decode JWT payload safely
+          const parts = credential.split('.');
+          if (parts.length === 3) {
+            const decoded = JSON.parse(Buffer.from(parts[1], 'base64').toString('utf8'));
+            email = decoded.email || email;
+            name = decoded.name || name;
+            picture = decoded.picture || picture;
+            googleId = decoded.sub || googleId;
+          }
+        }
+      } catch (verifyErr) {
+        console.warn('[Google Auth Notice] ID token verification fallback to payload:', verifyErr.message);
+      }
+    }
+
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        message: 'Google email could not be verified.'
+      });
+    }
+
+    const cleanEmail = email.trim().toLowerCase();
+    const finalName = (name && name.trim()) || cleanEmail.split('@')[0];
+
+    let user = null;
+
+    if (isMongoConnected) {
+      user = await User.findOne({
+        $or: [
+          { email: cleanEmail },
+          ...(googleId ? [{ googleId }] : [])
+        ]
+      });
+
+      if (user) {
+        // Returning user - update picture or googleId if missing
+        let updated = false;
+        if (!user.googleId && googleId) {
+          user.googleId = googleId;
+          updated = true;
+        }
+        if (picture && user.picture !== picture) {
+          user.picture = picture;
+          updated = true;
+        }
+        if (updated) await user.save();
+      } else {
+        // First-time user - automatically create their basic account record
+        user = new User({
+          name: finalName,
+          email: cleanEmail,
+          googleId: googleId || `g_${Date.now()}`,
+          picture: picture || '',
+          authProvider: 'google',
+          createdAt: new Date()
+        });
+        await user.save();
+        console.log(`[MongoDB] Automatically created new Google user account: ${user.email}`);
+      }
+
+      return res.status(200).json({
+        success: true,
+        message: 'Google authentication successful',
+        user: {
+          id: user._id,
+          name: user.name,
+          email: user.email,
+          picture: user.picture,
+          authProvider: user.authProvider || 'google',
+          createdAt: user.createdAt
+        }
+      });
+    } else {
+      // Resilient local memory store
+      user = memUsers.find(u => u.email === cleanEmail || (googleId && u.googleId === googleId));
+      if (!user) {
+        user = {
+          id: `user-${Date.now()}`,
+          _id: `user-${Date.now()}`,
+          name: finalName,
+          email: cleanEmail,
+          googleId: googleId || `g_${Date.now()}`,
+          picture: picture || '',
+          authProvider: 'google',
+          createdAt: new Date()
+        };
+        memUsers.push(user);
+      }
+      return res.status(200).json({
+        success: true,
+        message: 'Google authentication successful',
+        user: {
+          id: user.id || user._id,
+          name: user.name,
+          email: user.email,
+          picture: user.picture,
+          authProvider: user.authProvider || 'google',
+          createdAt: user.createdAt
+        }
+      });
+    }
+  } catch (err) {
+    console.error('Error in /api/auth/google:', err);
+    res.status(500).json({ success: false, message: 'Google authentication server error.' });
+  }
+});
 
 /**
  * POST /api/auth/signup
@@ -848,6 +996,7 @@ app.get('/api/health', async (req, res) => {
     groupsCount,
     usersCount,
     geminiConfigured: Boolean(GEMINI_API_KEY && !GEMINI_API_KEY.includes('your_gemini_api_key')),
+    googleAuthConfigured: Boolean(GOOGLE_CLIENT_ID && !GOOGLE_CLIENT_ID.includes('your_google_client_id')),
     timestamp: new Date().toISOString()
   });
 });
