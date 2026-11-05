@@ -2,20 +2,141 @@ import './style.css';
 import { initDotMatrixCanvas } from './canvas.js';
 
 /**
- * Talent Bridge Client-Side Controller
- * Communicates with live Express backend:
- * - GET http://localhost:5000/api/candidates
- * - GET http://localhost:5000/api/candidates?search=<query>
- * - POST http://localhost:5000/api/invitations
+ * TalentBridge Client-Side Controller & State Management
+ * Extends the system with:
+ * 1. "Create Your Profile" modal & live candidate persistence
+ * 2. Resume file handling with preview
+ * 3. Group & Team Matchmaking Board (Hyperfusion 2K26, Web3 Builders, AI Research Pod)
+ * 4. Shared connection & application state synced with localStorage & Express backend
+ * 5. Real-time debounced search & Web Speech API integration
  */
 
 const API_BASE = 'http://localhost:5000/api';
+const STORAGE_KEYS = {
+  CANDIDATES: 'talentbridge_candidates',
+  GROUPS: 'talentbridge_groups',
+  CONNECTIONS: 'talentbridge_connections',
+  APPLICATIONS: 'talentbridge_applications',
+  USER_PROFILE: 'talentbridge_user_profile'
+};
+
+// Initial Mock Candidates (used as initial seed if localStorage or API is empty)
+const INITIAL_CANDIDATES = [
+  {
+    id: 'priyam-1',
+    name: 'Priyam',
+    roleTag: 'Quiet Builder / Introvert',
+    skills: ['C++', 'DSA', 'Backend', 'Problem Solving'],
+    proofOfWork: '350+ LeetCode solved',
+    availability: 'Open to Hackathon Teams & Dev Groups',
+    resumeFileName: 'Priyam_CPP_Resume.pdf',
+    github: 'https://github.com',
+    portfolio: 'https://leetcode.com',
+    connected: false
+  },
+  {
+    id: 'ankan-2',
+    name: 'Ankan',
+    roleTag: 'UI Specialist',
+    skills: ['React', 'Tailwind UI', 'TypeScript', 'Frontend'],
+    proofOfWork: '3 deployed apps',
+    availability: 'Open to Hackathon Teams & Dev Groups',
+    resumeFileName: 'Ankan_Frontend_Resume.pdf',
+    github: 'https://github.com',
+    portfolio: 'https://ankan.dev',
+    connected: false
+  },
+  {
+    id: 'devina-3',
+    name: 'Devina',
+    roleTag: 'Systems & Distributed Engine',
+    skills: ['Rust', 'Distributed Systems', 'Go', 'Docker'],
+    proofOfWork: 'Custom Raft consensus engine | 280+ LeetCode solved',
+    availability: 'Open to Hackathon Teams & Dev Groups',
+    resumeFileName: 'Devina_Systems_CV.pdf',
+    github: 'https://github.com',
+    portfolio: '',
+    connected: false
+  },
+  {
+    id: 'rohan-4',
+    name: 'Rohan',
+    roleTag: 'Algorithm & AI Specialist',
+    skills: ['Python', 'PyTorch', 'C++', 'FastAPI'],
+    proofOfWork: 'Top 3% Kaggle | 400+ LeetCode solved',
+    availability: 'Open to Hackathon Teams & Dev Groups',
+    resumeFileName: 'Rohan_ML_Researcher.pdf',
+    github: 'https://github.com',
+    portfolio: 'https://kaggle.com',
+    connected: false
+  },
+  {
+    id: 'sneha-5',
+    name: 'Sneha',
+    roleTag: 'Full Stack Product Engineer',
+    skills: ['Next.js', 'React', 'Node.js', 'PostgreSQL'],
+    proofOfWork: 'Campus dev portal with 6k+ MAU',
+    availability: 'Open to Hackathon Teams & Dev Groups',
+    resumeFileName: 'Sneha_Fullstack.pdf',
+    github: 'https://github.com',
+    portfolio: '',
+    connected: false
+  },
+  {
+    id: 'arjun-6',
+    name: 'Arjun',
+    roleTag: 'Competitive Programmer',
+    skills: ['C++', 'Algorithms', 'DSA', 'Graph Theory'],
+    proofOfWork: 'Codeforces Candidate Master | 500+ LeetCode solved',
+    availability: 'Open to Hackathon Teams & Dev Groups',
+    resumeFileName: '',
+    github: 'https://github.com',
+    portfolio: 'https://codeforces.com',
+    connected: false
+  }
+];
+
+// Initial Developer Groups & Hackathon Teams
+const INITIAL_GROUPS = [
+  {
+    id: 'team-alpha',
+    name: 'Team Alpha (Hyperfusion 2K26)',
+    seeking: '1 C++ / Systems Builder',
+    project: 'Low-latency streaming platform',
+    currentMembers: 3,
+    maxMembers: 4,
+    tags: ['C++', 'Low-Latency', 'Systems', 'Distributed Systems'],
+    applied: false
+  },
+  {
+    id: 'web3-builders',
+    name: 'Web3 Builders',
+    seeking: '1 Frontend UI dev (React/Tailwind)',
+    project: 'Decentralized identity portal',
+    currentMembers: 2,
+    maxMembers: 4,
+    tags: ['React', 'Tailwind UI', 'TypeScript', 'Web3'],
+    applied: false
+  },
+  {
+    id: 'ai-research-pod',
+    name: 'AI Research Pod',
+    seeking: '1 Python / ML Engineer',
+    project: 'Computer Vision sign language detector',
+    currentMembers: 3,
+    maxMembers: 4,
+    tags: ['Python', 'PyTorch', 'Computer Vision', 'FastAPI'],
+    applied: false
+  }
+];
 
 class TalentBridgeApp {
   constructor() {
     this.candidates = [];
+    this.groups = [];
     this.searchQuery = '';
     this.selectedCandidateId = null;
+    this.selectedResumeFile = null;
     this.formPayload = {
       role: 'Backend C++ Developer',
       message: ''
@@ -27,12 +148,14 @@ class TalentBridgeApp {
 
     this.initDOM();
     this.initSpeechRecognition();
+    this.loadPersistedState();
     this.bindEvents();
-    this.loadInitialCandidates();
+    this.syncWithBackend();
   }
 
   initDOM() {
     this.dom = {
+      // Search elements
       searchInput: document.getElementById('candidateSearchInput'),
       searchBar: document.getElementById('heroSearchBar'),
       clearInputBtn: document.getElementById('clearInputBtn'),
@@ -46,8 +169,12 @@ class TalentBridgeApp {
       resetSearchBtn: document.getElementById('resetSearchBtn'),
       filterChips: document.querySelectorAll('.filter-chip'),
       mainCtaBtn: document.getElementById('mainCtaBtn'),
-      // Modal
-      modalOverlay: document.getElementById('inviteModalOverlay'),
+      
+      // Groups elements
+      groupsGrid: document.getElementById('groupsGrid'),
+
+      // Invite Modal
+      inviteModalOverlay: document.getElementById('inviteModalOverlay'),
       modalHeading: document.getElementById('modalHeading'),
       modalCandidateBadge: document.getElementById('modalCandidateBadge'),
       modalCandidateAvatar: document.getElementById('modalCandidateAvatar'),
@@ -56,44 +183,176 @@ class TalentBridgeApp {
       inviteRoleSelect: document.getElementById('inviteRoleSelect'),
       inviteMessageInput: document.getElementById('inviteMessageInput'),
       inviteForm: document.getElementById('inviteForm'),
-      closeModalBtn: document.getElementById('closeModalBtn'),
-      cancelModalBtn: document.getElementById('cancelModalBtn'),
+      closeInviteModalBtn: document.getElementById('closeModalBtn'),
+      cancelInviteModalBtn: document.getElementById('cancelModalBtn'),
       submitInviteBtn: document.getElementById('submitInviteBtn'),
-      // Toast
+
+      // Create Profile Modal
+      createProfileModalOverlay: document.getElementById('createProfileModalOverlay'),
+      openCreateProfileNavBtn: document.getElementById('openCreateProfileNavBtn'),
+      openCreateProfileHeroBtn: document.getElementById('openCreateProfileHeroBtn'),
+      closeCreateProfileModalBtn: document.getElementById('closeCreateProfileModalBtn'),
+      cancelCreateProfileBtn: document.getElementById('cancelCreateProfileBtn'),
+      createProfileForm: document.getElementById('createProfileForm'),
+      profNameInput: document.getElementById('profNameInput'),
+      profRoleTagInput: document.getElementById('profRoleTagInput'),
+      profSkillsInput: document.getElementById('profSkillsInput'),
+      profProofInput: document.getElementById('profProofInput'),
+      profAvailabilitySelect: document.getElementById('profAvailabilitySelect'),
+      profGithubInput: document.getElementById('profGithubInput'),
+      profPortfolioInput: document.getElementById('profPortfolioInput'),
+      resumeFileInput: document.getElementById('resumeFileInput'),
+      resumeDropzone: document.getElementById('resumeDropzone'),
+      resumePreviewWrap: document.getElementById('resumePreviewWrap'),
+      resumeFileNameSpan: document.getElementById('resumeFileNameSpan'),
+      removeResumeBtn: document.getElementById('removeResumeBtn'),
+
+      // Toast Tray
       toastTray: document.getElementById('toastTray')
     };
   }
 
   /**
-   * Fetch candidates from backend API
+   * Load state from localStorage on startup (instant load)
    */
-  async fetchCandidates(query = '') {
+  loadPersistedState() {
     try {
-      const url = query
-        ? `${API_BASE}/candidates?search=${encodeURIComponent(query)}`
-        : `${API_BASE}/candidates`;
-
-      const response = await fetch(url);
-      if (!response.ok) {
-        throw new Error(`Server returned ${response.status}`);
+      const savedCandidates = localStorage.getItem(STORAGE_KEYS.CANDIDATES);
+      if (savedCandidates) {
+        this.candidates = JSON.parse(savedCandidates);
+      } else {
+        this.candidates = JSON.parse(JSON.stringify(INITIAL_CANDIDATES));
       }
 
-      const data = await response.json();
-      this.candidates = Array.isArray(data) ? data : (data.data || []);
-      this.renderCandidates();
-    } catch (error) {
-      console.warn('API error fetching candidates:', error);
-      // If server is not yet running or network error, show notice
-      this.renderCandidates();
-    }
-  }
+      const savedGroups = localStorage.getItem(STORAGE_KEYS.GROUPS);
+      if (savedGroups) {
+        this.groups = JSON.parse(savedGroups);
+      } else {
+        this.groups = JSON.parse(JSON.stringify(INITIAL_GROUPS));
+      }
 
-  async loadInitialCandidates() {
-    await this.fetchCandidates('');
+      // Re-apply connection overrides from localStorage
+      const savedConnections = JSON.parse(localStorage.getItem(STORAGE_KEYS.CONNECTIONS) || '{}');
+      this.candidates.forEach(c => {
+        if (savedConnections[c.id]) {
+          c.connected = true;
+        }
+      });
+
+      // Re-apply group applications from localStorage
+      const savedApps = JSON.parse(localStorage.getItem(STORAGE_KEYS.APPLICATIONS) || '{}');
+      this.groups.forEach(g => {
+        if (savedApps[g.id]) {
+          g.applied = true;
+        }
+      });
+    } catch (e) {
+      console.warn('Error reading from localStorage:', e);
+      this.candidates = JSON.parse(JSON.stringify(INITIAL_CANDIDATES));
+      this.groups = JSON.parse(JSON.stringify(INITIAL_GROUPS));
+    }
+
+    this.renderCandidates();
+    this.renderGroups();
   }
 
   /**
-   * Debounced search handler for real-time keystrokes and speech
+   * Save current state to localStorage
+   */
+  saveStateToStorage() {
+    try {
+      localStorage.setItem(STORAGE_KEYS.CANDIDATES, JSON.stringify(this.candidates));
+      localStorage.setItem(STORAGE_KEYS.GROUPS, JSON.stringify(this.groups));
+
+      const connections = {};
+      this.candidates.forEach(c => {
+        if (c.connected) connections[c.id] = true;
+      });
+      localStorage.setItem(STORAGE_KEYS.CONNECTIONS, JSON.stringify(connections));
+
+      const applications = {};
+      this.groups.forEach(g => {
+        if (g.applied) applications[g.id] = true;
+      });
+      localStorage.setItem(STORAGE_KEYS.APPLICATIONS, JSON.stringify(applications));
+    } catch (e) {
+      console.warn('Error saving state to localStorage:', e);
+    }
+  }
+
+  /**
+   * Synchronize candidates and groups with the Express backend
+   */
+  async syncWithBackend() {
+    try {
+      // 1. Fetch Candidates from backend
+      const candRes = await fetch(`${API_BASE}/candidates`);
+      if (candRes.ok) {
+        const backendCandidates = await candRes.json();
+        if (Array.isArray(backendCandidates) && backendCandidates.length > 0) {
+          // Merge with local newly created candidates
+          const localOnly = this.candidates.filter(
+            lc => !backendCandidates.some(bc => bc.id === lc.id)
+          );
+          this.candidates = [...localOnly, ...backendCandidates];
+
+          // Preserve connected states
+          const savedConnections = JSON.parse(localStorage.getItem(STORAGE_KEYS.CONNECTIONS) || '{}');
+          this.candidates.forEach(c => {
+            if (savedConnections[c.id]) c.connected = true;
+          });
+
+          this.saveStateToStorage();
+          this.renderCandidates();
+        }
+      }
+
+      // 2. Fetch Groups from backend
+      const groupRes = await fetch(`${API_BASE}/groups`);
+      if (groupRes.ok) {
+        const backendGroups = await groupRes.json();
+        if (Array.isArray(backendGroups) && backendGroups.length > 0) {
+          this.groups = backendGroups;
+          const savedApps = JSON.parse(localStorage.getItem(STORAGE_KEYS.APPLICATIONS) || '{}');
+          this.groups.forEach(g => {
+            if (savedApps[g.id]) g.applied = true;
+          });
+          this.saveStateToStorage();
+          this.renderGroups();
+        }
+      }
+    } catch (err) {
+      console.info('Backend API unavailable; running in offline/localStorage mode.');
+    }
+  }
+
+  /**
+   * Search and filter candidates
+   */
+  filterCandidates(query = '') {
+    const q = (query || '').trim().toLowerCase();
+    if (!q) return this.candidates;
+
+    const tokens = q.split(/\s+/).filter(Boolean);
+
+    return this.candidates.filter(c => {
+      const name = (c.name || '').toLowerCase();
+      const skills = (c.skills || []).map(s => String(s).toLowerCase());
+      const pow = (c.proofOfWork || '').toLowerCase();
+      const role = (c.roleTag || '').toLowerCase();
+      const corpus = `${name} ${skills.join(' ')} ${pow} ${role}`;
+
+      if (corpus.includes(q)) return true;
+      if (name.includes(q)) return true;
+      if (skills.some(s => s.includes(q) || q.includes(s))) return true;
+      if (pow.includes(q)) return true;
+      if (tokens.every(t => corpus.includes(t))) return true;
+      return tokens.some(t => name.includes(t) || skills.some(s => s.includes(t)) || pow.includes(t));
+    });
+  }
+
+  /**
+   * Debounced search handler for live keystrokes & speech input
    */
   handleSearchInput(value, immediate = false) {
     this.searchQuery = value;
@@ -110,11 +369,11 @@ class TalentBridgeApp {
     }
 
     if (immediate) {
-      this.fetchCandidates(value);
+      this.renderCandidates();
     } else {
       this.searchDebounceTimer = setTimeout(() => {
-        this.fetchCandidates(value);
-      }, 250);
+        this.renderCandidates();
+      }, 200);
     }
   }
 
@@ -123,10 +382,7 @@ class TalentBridgeApp {
    */
   initSpeechRecognition() {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-      console.warn('Web Speech API is not supported in this browser.');
-      return;
-    }
+    if (!SpeechRecognition) return;
 
     try {
       this.speechRecognition = new SpeechRecognition();
@@ -153,11 +409,7 @@ class TalentBridgeApp {
       };
 
       this.speechRecognition.onerror = (event) => {
-        console.warn('Speech recognition error event:', event.error);
-
-        // Regional fallback to en-IN
         if (event.error === 'language-not-supported' && this.speechLang !== 'en-IN') {
-          console.log('Language en-US not supported, falling back to en-IN');
           this.speechLang = 'en-IN';
           this.speechRecognition.lang = 'en-IN';
           try {
@@ -167,17 +419,9 @@ class TalentBridgeApp {
         }
 
         if (event.error === 'not-allowed') {
-          this.showToast(
-            'Microphone Permission Denied',
-            'Please grant microphone access in your browser settings to use voice search.',
-            'error'
-          );
+          this.showToast('Microphone Denied', 'Please allow microphone access to search by voice.', 'error');
         } else if (event.error !== 'no-speech') {
-          this.showToast(
-            'Speech Input Notice',
-            `Speech recognition error: ${event.error}`,
-            'error'
-          );
+          this.showToast('Voice Search Error', `Error: ${event.error}`, 'error');
         }
 
         this.stopListening();
@@ -187,18 +431,14 @@ class TalentBridgeApp {
         this.stopListening();
       };
     } catch (err) {
-      console.error('Failed to initialize SpeechRecognition:', err);
+      console.warn('SpeechRecognition initialization error:', err);
     }
   }
 
   startListening() {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognition) {
-      this.showToast(
-        'Speech Recognition Unsupported',
-        'Native Web Speech API is not supported by your current browser. Please test in Google Chrome or Microsoft Edge.',
-        'error'
-      );
+      this.showToast('Speech Recognition Unsupported', 'Web Speech API is not supported in this browser.', 'error');
       return;
     }
 
@@ -212,8 +452,7 @@ class TalentBridgeApp {
         this.initSpeechRecognition();
       }
       this.speechRecognition.start();
-    } catch (error) {
-      console.warn('Error starting SpeechRecognition:', error);
+    } catch (e) {
       this.stopListening();
     }
   }
@@ -223,7 +462,7 @@ class TalentBridgeApp {
     if (this.speechRecognition) {
       try {
         this.speechRecognition.stop();
-      } catch (err) {}
+      } catch (e) {}
     }
     this.updateVoiceUI(false, '');
   }
@@ -243,7 +482,156 @@ class TalentBridgeApp {
   }
 
   /**
-   * Modal and Invitation Handshake
+   * 1. CREATE PROFILE MODAL & CANDIDATE PERSISTENCE
+   */
+  openCreateProfileModal() {
+    this.dom.createProfileModalOverlay.classList.add('active');
+    document.body.style.overflow = 'hidden';
+    setTimeout(() => {
+      this.dom.profNameInput.focus();
+    }, 100);
+  }
+
+  closeCreateProfileModal() {
+    this.dom.createProfileModalOverlay.classList.remove('active');
+    document.body.style.overflow = '';
+  }
+
+  handleResumeFileSelection(file) {
+    if (!file) return;
+
+    const validExtensions = ['.pdf', '.docx', '.doc'];
+    const fileName = file.name;
+    const ext = fileName.substring(fileName.lastIndexOf('.')).toLowerCase();
+
+    if (!validExtensions.includes(ext)) {
+      this.showToast('Invalid File Type', 'Please upload a .pdf or .docx resume file.', 'error');
+      return;
+    }
+
+    this.selectedResumeFile = file;
+    this.dom.resumeFileNameSpan.textContent = `${fileName} (${(file.size / 1024).toFixed(1)} KB)`;
+    this.dom.resumePreviewWrap.style.display = 'inline-flex';
+  }
+
+  clearResumeFile() {
+    this.selectedResumeFile = null;
+    this.dom.resumeFileInput.value = '';
+    this.dom.resumeFileNameSpan.textContent = '';
+    this.dom.resumePreviewWrap.style.display = 'none';
+  }
+
+  async handleCreateProfileSubmit(e) {
+    e.preventDefault();
+
+    const name = this.dom.profNameInput.value.trim();
+    if (!name) {
+      this.showToast('Name Required', 'Please enter your full name or developer handle.', 'error');
+      this.dom.profNameInput.focus();
+      return;
+    }
+
+    const roleTag = this.dom.profRoleTagInput.value.trim() || 'Quiet Builder / Engineer';
+    const skillsRaw = this.dom.profSkillsInput.value.trim();
+    const skills = skillsRaw
+      ? skillsRaw.split(',').map(s => s.trim()).filter(Boolean)
+      : ['Problem Solving', 'Software Engineering'];
+
+    const proofOfWork = this.dom.profProofInput.value.trim() || 'Verified Autonomous Project Builder';
+    const availability = this.dom.profAvailabilitySelect.value || 'Open to Hackathon Teams & Dev Groups';
+    const github = this.dom.profGithubInput.value.trim();
+    const portfolio = this.dom.profPortfolioInput.value.trim();
+
+    const resumeFileName = this.selectedResumeFile ? this.selectedResumeFile.name : '';
+
+    const newCandidate = {
+      id: `cand-${Date.now()}`,
+      name,
+      roleTag,
+      skills,
+      proofOfWork,
+      availability,
+      resumeFileName,
+      github,
+      portfolio,
+      connected: false,
+      createdAt: new Date().toISOString()
+    };
+
+    // 1. Add to beginning of active candidate store
+    this.candidates.unshift(newCandidate);
+    this.saveStateToStorage();
+
+    // 2. Also persist to Express backend if online
+    try {
+      fetch(`${API_BASE}/candidates`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newCandidate)
+      }).catch(err => console.info('Backend candidate sync offline:', err));
+    } catch (e) {}
+
+    // 3. Reset form & close modal
+    this.dom.createProfileForm.reset();
+    this.clearResumeFile();
+    this.closeCreateProfileModal();
+
+    // 4. Update the candidate grid and scroll to discovery
+    this.renderCandidates();
+    document.getElementById('discovery').scrollIntoView({ behavior: 'smooth' });
+
+    // 5. Emit confirmation toast
+    this.showToast(
+      'Profile published successfully!',
+      'Your proof-of-work is now discoverable by recruiters and teams.',
+      'success'
+    );
+  }
+
+  /**
+   * 2. GROUP & TEAM MATCHMAKING BOARD
+   */
+  async joinGroup(groupId) {
+    const group = this.groups.find(g => g.id === groupId);
+    if (!group) return;
+
+    // Check if already applied
+    if (group.applied) {
+      this.showToast('Already Applied', `You have already submitted an application to ${group.name}.`, 'info');
+      return;
+    }
+
+    // Set applied status
+    group.applied = true;
+    if (group.currentMembers < group.maxMembers) {
+      group.currentMembers += 1;
+    }
+    this.saveStateToStorage();
+    this.renderGroups();
+
+    // Try posting to Express backend
+    try {
+      fetch(`${API_BASE}/groups/join`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          groupId,
+          candidateName: 'Quiet Builder',
+          note: 'Applied with verified proof-of-work'
+        })
+      }).catch(err => console.info('Backend group join sync offline:', err));
+    } catch (e) {}
+
+    // Emit confirmation toast
+    this.showToast(
+      `Application sent to ${group.name} leads!`,
+      `Seeking: ${group.seeking}. Your proof-of-work has been shared with the team.`,
+      'success'
+    );
+  }
+
+  /**
+   * 3. INVITATION HANDSHAKE MODAL
    */
   openInviteModal(candidateId) {
     const candidate = this.candidates.find(c => c.id === candidateId);
@@ -259,12 +647,12 @@ class TalentBridgeApp {
     this.dom.modalHeading.textContent = `Send Invitation to ${candidate.name}`;
     this.dom.modalCandidateAvatar.textContent = candidate.name.charAt(0);
     this.dom.modalCandidateName.textContent = candidate.name;
-    this.dom.modalCandidateSub.textContent = `${candidate.skills.slice(0, 3).join(', ')} • ${candidate.proofOfWork}`;
-    
+    this.dom.modalCandidateSub.textContent = `${(candidate.skills || []).slice(0, 3).join(', ')} • ${candidate.proofOfWork}`;
+
     this.dom.inviteRoleSelect.value = 'Backend C++ Developer';
     this.dom.inviteMessageInput.value = '';
 
-    this.dom.modalOverlay.classList.add('active');
+    this.dom.inviteModalOverlay.classList.add('active');
     document.body.style.overflow = 'hidden';
 
     setTimeout(() => {
@@ -274,99 +662,76 @@ class TalentBridgeApp {
 
   closeInviteModal() {
     this.selectedCandidateId = null;
-    this.dom.modalOverlay.classList.remove('active');
+    this.dom.inviteModalOverlay.classList.remove('active');
     document.body.style.overflow = '';
   }
 
   async sendInvite(candidateId, role, message = '') {
     const targetId = candidateId || this.selectedCandidateId;
     const candidate = this.candidates.find(c => c.id === targetId);
-
-    if (!candidate) {
-      console.error('Candidate not found:', targetId);
-      return;
-    }
+    if (!candidate) return;
 
     const assignedRole = role || this.formPayload.role || 'Backend C++ Developer';
 
+    // Mark connected state and persist
+    candidate.connected = true;
+    this.saveStateToStorage();
+
+    // Close modal
+    this.closeInviteModal();
+
+    // Re-render candidates
+    this.renderCandidates();
+
+    // Post to backend
     try {
-      // POST to Express backend
-      const response = await fetch(`${API_BASE}/invitations`, {
+      fetch(`${API_BASE}/invitations`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           candidateId: targetId,
           role: assignedRole,
           message: message || ''
         })
-      });
+      }).catch(err => console.info('Backend invitation offline:', err));
+    } catch (e) {}
 
-      if (!response.ok) {
-        throw new Error(`Invitation API error ${response.status}`);
-      }
-
-      const result = await response.json();
-
-      // Update candidate state in client
-      candidate.connected = true;
-
-      // Close modal
-      this.closeInviteModal();
-
-      // Re-render cards so button updates to "Invited ✓"
-      this.renderCandidates();
-
-      // Emit success toast strictly matching specs
-      this.showToast(
-        `Invitation sent to ${candidate.name}!`,
-        `Role: ${assignedRole}. Successfully linked to developer group.`,
-        'success'
-      );
-
-      return result;
-    } catch (err) {
-      console.error('Error sending invitation:', err);
-      // Optimistic update in case backend is offline during demo
-      candidate.connected = true;
-      this.closeInviteModal();
-      this.renderCandidates();
-      this.showToast(
-        `Invitation sent to ${candidate.name}!`,
-        `Role: ${assignedRole}. Successfully linked to developer group.`,
-        'success'
-      );
-    }
+    // Emit success toast
+    this.showToast(
+      `Invitation sent to ${candidate.name}!`,
+      `Role: ${assignedRole}. Successfully linked to developer group.`,
+      'success'
+    );
   }
 
   /**
-   * Render candidate cards
+   * Render candidate cards into grid
    */
   renderCandidates() {
+    const filtered = this.filterCandidates(this.searchQuery);
+    const count = filtered.length;
     const currentQuery = (this.searchQuery || '').trim().toLowerCase();
-    const count = this.candidates.length;
 
-    // Update Toolbar status
+    // Update status bar
     if (currentQuery) {
       this.dom.resultsStatusText.innerHTML = `Found <strong>${count}</strong> candidate${count === 1 ? '' : 's'} matching "<strong>${escapeHTML(this.searchQuery)}</strong>"`;
     } else {
-      this.dom.resultsStatusText.innerHTML = `Showing all <strong>${count}</strong> quiet builders`;
+      this.dom.resultsStatusText.innerHTML = `Showing all <strong>${this.candidates.length}</strong> quiet builders`;
     }
 
-    // Update Filter Chips active state
+    // Update filter chips
     this.dom.filterChips.forEach(chip => {
-      const filterVal = chip.getAttribute('data-filter') || '';
-      if (filterVal.toLowerCase() === currentQuery) {
+      const val = chip.getAttribute('data-filter') || '';
+      if (val.toLowerCase() === currentQuery) {
         chip.classList.add('active');
-      } else if (!currentQuery && filterVal === '') {
+      } else if (!currentQuery && val === '') {
         chip.classList.add('active');
       } else {
         chip.classList.remove('active');
       }
     });
 
-    // Handle Empty State
+    // Empty state
     if (count === 0) {
       this.dom.candidatesGrid.style.display = 'none';
       this.dom.emptyStateView.style.display = 'block';
@@ -378,13 +743,40 @@ class TalentBridgeApp {
     this.dom.emptyStateView.style.display = 'none';
 
     // Render Cards
-    this.dom.candidatesGrid.innerHTML = this.candidates.map(c => {
+    this.dom.candidatesGrid.innerHTML = filtered.map(c => {
       const isMatch = (term) => currentQuery && term.toLowerCase().includes(currentQuery);
 
-      const skillsHTML = c.skills.map(skill => {
+      const skillsHTML = (c.skills || []).map(skill => {
         const highlighted = isMatch(skill) ? 'match-highlight' : '';
         return `<span class="skill-pill ${highlighted}">${escapeHTML(skill)}</span>`;
       }).join('');
+
+      // Meta Links (Resume badge, GitHub, Portfolio)
+      let metaLinksHTML = '';
+      if (c.resumeFileName) {
+        metaLinksHTML += `
+          <span class="meta-link-pill" title="Resume on file">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+            <span>Resume</span>
+          </span>
+        `;
+      }
+      if (c.github) {
+        metaLinksHTML += `
+          <a href="${escapeHTML(c.github)}" target="_blank" rel="noopener noreferrer" class="meta-link-pill">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+            <span>GitHub</span>
+          </a>
+        `;
+      }
+      if (c.portfolio) {
+        metaLinksHTML += `
+          <a href="${escapeHTML(c.portfolio)}" target="_blank" rel="noopener noreferrer" class="meta-link-pill">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+            <span>Portfolio</span>
+          </a>
+        `;
+      }
 
       const connectedBtnHTML = c.connected
         ? `<button type="button" class="btn-invite-team is-connected" disabled>
@@ -424,6 +816,8 @@ class TalentBridgeApp {
               <span>${escapeHTML(c.proofOfWork)}</span>
             </div>
 
+            ${metaLinksHTML ? `<div class="candidate-meta-links">${metaLinksHTML}</div>` : ''}
+
             <div class="availability-text">
               ${escapeHTML(c.availability)}
             </div>
@@ -437,17 +831,80 @@ class TalentBridgeApp {
     }).join('');
   }
 
+  /**
+   * Render groups board
+   */
+  renderGroups() {
+    if (!this.dom.groupsGrid) return;
+
+    this.dom.groupsGrid.innerHTML = this.groups.map(g => {
+      const dotsHTML = Array.from({ length: g.maxMembers }, (_, i) => {
+        const isFilled = i < g.currentMembers;
+        return `<span class="capacity-dot ${isFilled ? 'filled' : ''}"></span>`;
+      }).join('');
+
+      const tagsHTML = (g.tags || []).map(t => `<span class="group-tag">${escapeHTML(t)}</span>`).join('');
+
+      const buttonHTML = g.applied
+        ? `<button type="button" class="btn-join-group is-applied" disabled>
+             <svg viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+             <span>Application Sent ✓</span>
+           </button>`
+        : `<button type="button" class="btn-join-group" onclick="window.talentMatcher.joinGroup('${g.id}')">
+             <span>Join Group / Apply with Proof-of-Work</span>
+           </button>`;
+
+      return `
+        <div class="group-card" data-id="${g.id}">
+          <div>
+            <div class="group-top">
+              <h3 class="group-name">${escapeHTML(g.name)}</h3>
+              <span class="group-status-pill">Recruiting: 1 Spot Left</span>
+            </div>
+
+            <p class="group-project-desc">${escapeHTML(g.project)}</p>
+
+            <div class="group-seeking-box">
+              <span class="seeking-label">Seeking Role</span>
+              <div class="seeking-role">${escapeHTML(g.seeking)}</div>
+            </div>
+
+            <div class="group-capacity-row">
+              <span>Team Roster (${g.currentMembers}/${g.maxMembers})</span>
+              <div class="capacity-dots">${dotsHTML}</div>
+            </div>
+
+            <div class="group-tags">
+              ${tagsHTML}
+            </div>
+          </div>
+
+          <div>
+            ${buttonHTML}
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
   showToast(title, message, type = 'success') {
     const toast = document.createElement('div');
     toast.className = `toast-item toast-${type}`;
 
-    const iconSVG = type === 'success'
-      ? `<svg viewBox="0 0 20 20" fill="currentColor">
-           <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
-         </svg>`
-      : `<svg viewBox="0 0 20 20" fill="currentColor">
-           <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
-         </svg>`;
+    let iconSVG = '';
+    if (type === 'success') {
+      iconSVG = `<svg viewBox="0 0 20 20" fill="currentColor">
+                   <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                 </svg>`;
+    } else if (type === 'error') {
+      iconSVG = `<svg viewBox="0 0 20 20" fill="currentColor">
+                   <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+                 </svg>`;
+    } else {
+      iconSVG = `<svg viewBox="0 0 20 20" fill="currentColor">
+                   <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
+                 </svg>`;
+    }
 
     toast.innerHTML = `
       <div class="toast-icon">${iconSVG}</div>
@@ -490,18 +947,15 @@ class TalentBridgeApp {
       }
     });
 
-    // Search submit button
     this.dom.searchSubmitBtn.addEventListener('click', () => {
       document.getElementById('discovery').scrollIntoView({ behavior: 'smooth' });
     });
 
-    // Clear search button
     this.dom.clearInputBtn.addEventListener('click', () => {
       this.handleSearchInput('', true);
       this.dom.searchInput.focus();
     });
 
-    // Reset button in empty state
     this.dom.resetSearchBtn.addEventListener('click', () => {
       this.handleSearchInput('', true);
       this.dom.searchInput.focus();
@@ -531,20 +985,11 @@ class TalentBridgeApp {
       document.getElementById('discovery').scrollIntoView({ behavior: 'smooth' });
     });
 
-    // Modal close listeners
-    this.dom.closeModalBtn.addEventListener('click', () => this.closeInviteModal());
-    this.dom.cancelModalBtn.addEventListener('click', () => this.closeInviteModal());
-
-    this.dom.modalOverlay.addEventListener('click', (e) => {
-      if (e.target === this.dom.modalOverlay) {
-        this.closeInviteModal();
-      }
-    });
-
-    document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && this.dom.modalOverlay.classList.contains('active')) {
-        this.closeInviteModal();
-      }
+    // Invite Modal close listeners
+    this.dom.closeInviteModalBtn.addEventListener('click', () => this.closeInviteModal());
+    this.dom.cancelInviteModalBtn.addEventListener('click', () => this.closeInviteModal());
+    this.dom.inviteModalOverlay.addEventListener('click', (e) => {
+      if (e.target === this.dom.inviteModalOverlay) this.closeInviteModal();
     });
 
     // Invite Form Submit
@@ -557,6 +1002,61 @@ class TalentBridgeApp {
 
     this.dom.inviteRoleSelect.addEventListener('change', (e) => {
       this.formPayload.role = e.target.value;
+    });
+
+    // Create Profile Modal triggers
+    if (this.dom.openCreateProfileNavBtn) {
+      this.dom.openCreateProfileNavBtn.addEventListener('click', () => this.openCreateProfileModal());
+    }
+    if (this.dom.openCreateProfileHeroBtn) {
+      this.dom.openCreateProfileHeroBtn.addEventListener('click', () => this.openCreateProfileModal());
+    }
+    if (this.dom.closeCreateProfileModalBtn) {
+      this.dom.closeCreateProfileModalBtn.addEventListener('click', () => this.closeCreateProfileModal());
+    }
+    if (this.dom.cancelCreateProfileBtn) {
+      this.dom.cancelCreateProfileBtn.addEventListener('click', () => this.closeCreateProfileModal());
+    }
+    if (this.dom.createProfileModalOverlay) {
+      this.dom.createProfileModalOverlay.addEventListener('click', (e) => {
+        if (e.target === this.dom.createProfileModalOverlay) this.closeCreateProfileModal();
+      });
+    }
+
+    // Resume File Input change
+    if (this.dom.resumeFileInput) {
+      this.dom.resumeFileInput.addEventListener('change', (e) => {
+        if (e.target.files && e.target.files[0]) {
+          this.handleResumeFileSelection(e.target.files[0]);
+        }
+      });
+    }
+
+    // Remove resume button
+    if (this.dom.removeResumeBtn) {
+      this.dom.removeResumeBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.clearResumeFile();
+      });
+    }
+
+    // Create Profile Form Submit
+    if (this.dom.createProfileForm) {
+      this.dom.createProfileForm.addEventListener('submit', (e) => {
+        this.handleCreateProfileSubmit(e);
+      });
+    }
+
+    // Escape key closes modals
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        if (this.dom.inviteModalOverlay.classList.contains('active')) {
+          this.closeInviteModal();
+        }
+        if (this.dom.createProfileModalOverlay && this.dom.createProfileModalOverlay.classList.contains('active')) {
+          this.closeCreateProfileModal();
+        }
+      }
     });
   }
 }
@@ -573,11 +1073,7 @@ function escapeHTML(str) {
 
 // Bootstrap on DOM load
 document.addEventListener('DOMContentLoaded', () => {
-  // Initialize Canvas
   initDotMatrixCanvas();
-
-  // Initialize Talent Bridge Controller
   window.talentMatcher = new TalentBridgeApp();
   window.TalentApp = window.talentMatcher;
 });
-

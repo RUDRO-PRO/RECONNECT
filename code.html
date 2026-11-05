@@ -8,1156 +8,1587 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
-    :root {
-      --bg: #f7f7f5;
-      --ink: #111111;
-      --mute: #9a9a9a;
-      --sub: #7b7b7b;
-      --card-bg: #ffffff;
-      --border-subtle: rgba(17, 17, 17, 0.08);
-      --success: #15803d;
-      --success-bg: #f0fdf4;
-      --success-border: #bbf7d0;
-    }
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-    }
-    html {
-      scroll-behavior: smooth;
-    }
-    body {
-      min-height: 100%;
-      background-color: var(--bg);
-      color: var(--ink);
-      font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      -webkit-font-smoothing: antialiased;
-      -moz-osx-font-smoothing: grayscale;
-      overflow-x: hidden;
-    }
-
-    /* Hero Section */
-    .hero {
-      position: relative;
-      height: 100vh;
-      min-height: 680px;
-      overflow: hidden;
-      background-color: var(--bg);
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-    }
-
-    canvas#dots {
-      position: absolute;
-      inset: 0;
-      width: 100%;
-      height: 100%;
-      display: block;
-      z-index: 1;
-      pointer-events: none;
-    }
-
-    nav {
-      position: relative;
-      z-index: 3;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: clamp(18px, 2.6vw, 40px);
-      padding-top: 36px;
-      font-size: 13.5px;
-    }
-
-    .brand {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      margin-right: 10px;
-      text-decoration: none;
-      color: var(--ink);
-      font-weight: 600;
-      font-size: 15px;
-      letter-spacing: -0.01em;
-    }
-
-    .brand svg {
-      width: 16px;
-      height: 18px;
-      fill: currentColor;
-    }
-
-    .nav-links {
-      display: flex;
-      align-items: center;
-      gap: clamp(16px, 2.2vw, 34px);
-      list-style: none;
-    }
-
-    .nav-links a {
-      color: #3a3a3a;
-      text-decoration: none;
-      transition: color 0.2s ease;
-    }
-
-    .nav-links a:hover {
-      color: #000000;
-    }
-
-    .btn-signin {
-      background: var(--ink);
-      color: #ffffff;
-      padding: 10px 21px;
-      border-radius: 999px;
-      font-weight: 500;
-      text-decoration: none;
-      font-size: 13.5px;
-      margin-left: 10px;
-      transition: transform 0.25s ease, background-color 0.2s ease;
-      display: inline-block;
-      white-space: nowrap;
-    }
-
-    .btn-signin:hover {
-      transform: translateY(-1px);
-      background-color: #000;
-    }
-
-    /* Centered Copy Block */
-    .copy {
-      position: absolute;
-      left: 50%;
-      top: 21%;
-      transform: translateX(-50%);
-      text-align: center;
-      width: min(92vw, 740px);
-      z-index: 3;
-      pointer-events: auto;
-    }
-
-    h1 {
-      font-weight: 500;
-      letter-spacing: -0.035em;
-      line-height: 1.04;
-      font-size: clamp(38px, 3.75vw, 68px);
-    }
-
-    h1 .line-1 {
-      display: block;
-      color: var(--mute); /* grey #9a9a9a */
-    }
-
-    h1 .line-2 {
-      display: block;
-      color: var(--ink); /* black #111111 */
-    }
-
-    .subline {
-      margin-top: 18px;
-      margin-left: auto;
-      margin-right: auto;
-      max-width: 440px;
-      color: var(--sub);
-      font-size: clamp(13px, 1.02vw, 15.5px);
-      line-height: 1.45;
-      font-weight: 400;
-    }
-
-    /* Search Bar Below Subline */
-    .search-bar-container {
-      margin-top: 24px;
-      width: 100%;
-      max-width: 490px;
-      margin-left: auto;
-      margin-right: auto;
-      position: relative;
-    }
-
-    .search-bar {
-      display: flex;
-      align-items: center;
-      background: #ffffff;
-      border: 1px solid rgba(17, 17, 17, 0.14);
-      border-radius: 999px;
-      padding: 6px 7px 6px 18px;
-      box-shadow: 0 4px 18px rgba(0, 0, 0, 0.04);
-      transition: border-color 0.25s ease, box-shadow 0.25s ease;
-      position: relative;
-    }
-
-    .search-bar:focus-within {
-      border-color: var(--ink);
-      box-shadow: 0 6px 24px rgba(0, 0, 0, 0.08), 0 0 0 3px rgba(17, 17, 17, 0.05);
-    }
-
-    .search-bar.is-listening {
-      border-color: #ef4444;
-      box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.2), 0 6px 20px rgba(239, 68, 68, 0.1);
-    }
-
-    .search-icon-btn {
-      background: none;
-      border: none;
-      padding: 0;
-      margin-right: 12px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: var(--mute);
-      cursor: pointer;
-      transition: color 0.2s ease;
-    }
-
-    .search-icon-btn:hover {
-      color: var(--ink);
-    }
-
-    .search-icon-btn svg {
-      width: 18px;
-      height: 18px;
-    }
-
-    .search-input {
-      flex: 1;
-      border: none;
-      outline: none;
-      background: transparent;
-      font-size: 14px;
-      font-family: inherit;
-      color: var(--ink);
-      letter-spacing: -0.01em;
-      min-width: 0;
-    }
-
-    .search-input::placeholder {
-      color: var(--mute);
-      opacity: 0.95;
-    }
-
-    .clear-search-btn {
-      background: none;
-      border: none;
-      color: var(--mute);
-      cursor: pointer;
-      padding: 4px;
-      border-radius: 50%;
-      margin-right: 4px;
-      display: none;
-      align-items: center;
-      justify-content: center;
-      transition: color 0.2s ease;
-    }
-
-    .clear-search-btn:hover {
-      color: var(--ink);
-    }
-
-    .clear-search-btn svg {
-      width: 15px;
-      height: 15px;
-    }
-
-    .mic-button {
-      position: relative;
-      width: 38px;
-      height: 38px;
-      border-radius: 50%;
-      border: none;
-      background: #f2f2ef;
-      color: #4a4a4a;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
-      flex-shrink: 0;
-      transition: all 0.2s ease;
-    }
-
-    .mic-button:hover {
-      background: #e7e7e3;
-      color: var(--ink);
-      transform: scale(1.04);
-    }
-
-    .mic-button svg {
-      width: 17px;
-      height: 17px;
-      position: relative;
-      z-index: 2;
-    }
-
-    .mic-button.listening {
-      background: #fee2e2;
-      color: #dc2626;
-    }
-
-    .mic-ping-ring {
-      position: absolute;
-      inset: -3px;
-      border-radius: 50%;
-      border: 2px solid #ef4444;
-      opacity: 0;
-      pointer-events: none;
-    }
-
-    .mic-button.listening .mic-ping-ring {
-      animation: mic-pulse 1.4s cubic-bezier(0, 0.2, 0.8, 1) infinite;
-    }
-
-    @keyframes mic-pulse {
-      0% {
-        transform: scale(0.9);
-        opacity: 0.8;
-      }
-      100% {
-        transform: scale(1.5);
-        opacity: 0;
-      }
-    }
-
-    .speech-feedback {
-      font-size: 11.5px;
-      color: #dc2626;
-      font-weight: 500;
-      margin-top: 6px;
-      height: 15px;
-      text-align: center;
-      opacity: 0;
-      transform: translateY(-3px);
-      transition: opacity 0.2s ease, transform 0.2s ease;
-      pointer-events: none;
-    }
-
-    .speech-feedback.active {
-      opacity: 1;
-      transform: translateY(0);
-    }
-
-    /* Rainbow Glow CTA Button */
-    .cta-wrapper {
-      position: relative;
-      display: inline-block;
-      margin-top: 18px;
-    }
-
-    .cta-glow {
-      position: absolute;
-      left: 10%;
-      right: 10%;
-      bottom: -6px;
-      height: 16px;
-      border-radius: 50%;
-      background: linear-gradient(90deg, #ffcf5a, #7dffa8, #5ad7ff, #9b7bff, #ff6fd8, #ffb36b);
-      filter: blur(9px);
-      opacity: 0.85;
-      z-index: 1;
-      pointer-events: none;
-      transition: opacity 0.3s ease, filter 0.3s ease, bottom 0.3s ease;
-    }
-
-    .cta-btn {
-      position: relative;
-      z-index: 2;
-      display: inline-block;
-      background: var(--ink);
-      color: #ffffff;
-      font-size: 13.5px;
-      font-weight: 500;
-      padding: 11px 22px;
-      border-radius: 999px;
-      text-decoration: none;
-      letter-spacing: -0.005em;
-      transition: transform 0.3s ease, background-color 0.2s ease;
-    }
-
-    .cta-wrapper:hover .cta-glow {
-      opacity: 1;
-      filter: blur(12px);
-      bottom: -9px;
-    }
-
-    .cta-wrapper:hover .cta-btn {
-      transform: translateY(-1px);
-    }
-
-    /* Partner Logos */
-    .logos {
-      position: absolute;
-      bottom: clamp(24px, 5vh, 52px);
-      left: 0;
-      width: 100%;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      gap: clamp(24px, 4.4vw, 64px);
-      flex-wrap: wrap;
-      padding: 0 16px;
-      z-index: 3;
-      color: #8d8d8d;
-      font-size: clamp(13.5px, 1.15vw, 16.5px);
-      font-weight: 500;
-      letter-spacing: -0.01em;
-    }
-
-    .logo-item {
-      display: inline-flex;
-      align-items: center;
-      gap: 7px;
-      user-select: none;
-    }
-
-    .logo-item svg {
-      width: 17px;
-      height: 17px;
-      fill: currentColor;
-    }
-
-    /* Below-the-Fold Discovery Section */
-    .discovery-section {
-      background-color: var(--bg);
-      position: relative;
-      z-index: 3;
-      padding: clamp(64px, 8vw, 100px) clamp(20px, 4vw, 48px);
-      border-top: 1px solid rgba(0, 0, 0, 0.05);
-    }
-
-    .discovery-container {
-      max-width: 1120px;
-      margin: 0 auto;
-    }
-
-    .discovery-header {
-      text-align: center;
-      margin-bottom: 40px;
-    }
-
-    .discovery-pill-tag {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      font-size: 11.5px;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.07em;
-      color: #4b4b4b;
-      background: rgba(0, 0, 0, 0.04);
-      padding: 5px 14px;
-      border-radius: 999px;
-      margin-bottom: 14px;
-    }
-
-    .discovery-title {
-      font-size: clamp(28px, 2.7vw, 40px);
-      font-weight: 500;
-      letter-spacing: -0.03em;
-      color: var(--ink);
-      line-height: 1.15;
-    }
-
-    .discovery-sub {
-      margin-top: 10px;
-      color: var(--sub);
-      font-size: clamp(14px, 1.05vw, 16px);
-      max-width: 520px;
-      margin-left: auto;
-      margin-right: auto;
-      line-height: 1.5;
-    }
-
-    .discovery-toolbar {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      flex-wrap: wrap;
-      gap: 16px;
-      margin-top: 32px;
-      padding-bottom: 16px;
-      border-bottom: 1px solid rgba(0, 0, 0, 0.06);
-    }
-
-    .results-status {
-      font-size: 13.5px;
-      color: var(--sub);
-      font-weight: 500;
-    }
-
-    .results-status strong {
-      color: var(--ink);
-    }
-
-    .filter-chips {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      flex-wrap: wrap;
-    }
-
-    .filter-chips-label {
-      font-size: 12px;
-      color: var(--mute);
-    }
-
-    .filter-chip {
-      background: #ffffff;
-      border: 1px solid rgba(0, 0, 0, 0.08);
-      color: #444444;
-      padding: 5px 13px;
-      border-radius: 999px;
-      font-size: 12px;
-      font-family: inherit;
-      cursor: pointer;
-      transition: all 0.15s ease;
-    }
-
-    .filter-chip:hover {
-      border-color: var(--ink);
-      color: var(--ink);
-    }
-
-    .filter-chip.active {
-      background: var(--ink);
-      color: #ffffff;
-      border-color: var(--ink);
-    }
-
-    /* Candidate Cards Grid */
-    .candidates-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(330px, 1fr));
-      gap: 24px;
-      margin-top: 26px;
-    }
-
-    .candidate-card {
-      background: var(--card-bg);
-      border: 1px solid var(--border-subtle);
-      border-radius: 20px;
-      padding: 26px;
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.02);
-      transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
-    }
-
-    .candidate-card:hover {
-      transform: translateY(-3px);
-      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.06);
-      border-color: rgba(17, 17, 17, 0.16);
-    }
-
-    .card-top {
-      display: flex;
-      align-items: flex-start;
-      justify-content: space-between;
-      gap: 12px;
-      margin-bottom: 18px;
-    }
-
-    .candidate-profile {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-
-    .candidate-avatar {
-      width: 44px;
-      height: 44px;
-      border-radius: 50%;
-      background: var(--ink);
-      color: #ffffff;
-      font-weight: 600;
-      font-size: 16px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      letter-spacing: -0.02em;
-      flex-shrink: 0;
-    }
-
-    .candidate-name {
-      font-size: 19px;
-      font-weight: 600;
-      letter-spacing: -0.02em;
-      color: var(--ink);
-    }
-
-    .candidate-role-tag {
-      display: inline-block;
-      font-size: 11.5px;
-      font-weight: 500;
-      color: #616161;
-      background: #f0f0ee;
-      padding: 3px 9px;
-      border-radius: 6px;
-      margin-top: 3px;
-    }
-
-    .availability-pill {
-      display: inline-flex;
-      align-items: center;
-      gap: 5px;
-      font-size: 11px;
-      font-weight: 500;
-      color: var(--success);
-      background: var(--success-bg);
-      border: 1px solid var(--success-border);
-      padding: 4px 9px;
-      border-radius: 999px;
-      white-space: nowrap;
-    }
-
-    .dot-live {
-      width: 6px;
-      height: 6px;
-      border-radius: 50%;
-      background: #22c55e;
-      box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.2);
-    }
-
-    .card-middle {
-      margin-bottom: 22px;
-    }
-
-    .skills-pills {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 6px;
-      margin-bottom: 16px;
-    }
-
-    .skill-pill {
-      font-size: 12px;
-      font-weight: 500;
-      color: #333333;
-      background: #f4f4f2;
-      border: 1px solid rgba(0, 0, 0, 0.03);
-      padding: 4px 10px;
-      border-radius: 8px;
-      transition: background-color 0.2s ease;
-    }
-
-    .skill-pill.match-highlight {
-      background: #fef08a;
-      color: #854d0e;
-      border-color: #fde047;
-    }
-
-    .pow-box {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      font-size: 12.5px;
-      color: #262626;
-      background: #fafafa;
-      border: 1px solid rgba(0, 0, 0, 0.05);
-      border-radius: 9px;
-      padding: 9px 12px;
-      margin-bottom: 10px;
-      font-weight: 500;
-    }
-
-    .pow-icon {
-      width: 15px;
-      height: 15px;
-      color: var(--ink);
-      flex-shrink: 0;
-    }
-
-    .availability-text {
-      font-size: 12px;
-      color: var(--sub);
-      line-height: 1.4;
-      padding-left: 2px;
-    }
-
-    .card-bottom {
-      margin-top: auto;
-      padding-top: 14px;
-      border-top: 1px solid rgba(0, 0, 0, 0.05);
-    }
-
-    /* Invite to Team Black Pill Button */
-    .btn-invite-team {
-      width: 100%;
-      background: var(--ink);
-      color: #ffffff;
-      border: 1px solid transparent;
-      padding: 11px 18px;
-      border-radius: 999px;
-      font-size: 13.5px;
-      font-weight: 500;
-      font-family: inherit;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 7px;
-      transition: all 0.2s ease;
-    }
-
-    .btn-invite-team:hover:not(:disabled) {
-      background: #000000;
-      transform: translateY(-1px);
-      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15);
-    }
-
-    .btn-invite-team.is-connected {
-      background: var(--success-bg);
-      color: var(--success);
-      border: 1px solid var(--success-border);
-      cursor: default;
-      transform: none !important;
-      box-shadow: none !important;
-    }
-
-    .btn-invite-team.is-connected svg {
-      width: 14px;
-      height: 14px;
-      fill: currentColor;
-    }
-
-    /* Empty Search State */
-    .empty-state {
-      text-align: center;
-      padding: 68px 24px;
-      background: #ffffff;
-      border-radius: 20px;
-      border: 1px dashed rgba(0, 0, 0, 0.12);
-      margin-top: 26px;
-    }
-
-    .empty-icon {
-      width: 54px;
-      height: 54px;
-      border-radius: 50%;
-      background: #f4f4f2;
-      color: var(--mute);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      margin: 0 auto 16px;
-    }
-
-    .empty-icon svg {
-      width: 26px;
-      height: 26px;
-      stroke: currentColor;
-    }
-
-    .empty-title {
-      font-size: 18px;
-      font-weight: 500;
-      color: var(--ink);
-      margin-bottom: 8px;
-    }
-
-    .empty-desc {
-      font-size: 13.5px;
-      color: var(--sub);
-      max-width: 440px;
-      margin: 0 auto 20px;
-      line-height: 1.5;
-    }
-
-    .btn-reset-filter {
-      background: var(--ink);
-      color: #ffffff;
-      border: none;
-      border-radius: 999px;
-      padding: 9px 22px;
-      font-size: 13px;
-      font-weight: 500;
-      font-family: inherit;
-      cursor: pointer;
-      transition: background-color 0.2s ease;
-    }
-
-    .btn-reset-filter:hover {
-      background: #000000;
-    }
-
-    /* Clean Minimalist Modal */
-    .modal-overlay {
-      position: fixed;
-      inset: 0;
-      background: rgba(17, 17, 17, 0.45);
-      backdrop-filter: blur(6px);
-      -webkit-backdrop-filter: blur(6px);
-      z-index: 1000;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 16px;
-      opacity: 0;
-      transition: opacity 0.25s ease;
-      pointer-events: none;
-    }
-
-    .modal-overlay.active {
-      opacity: 1;
-      pointer-events: auto;
-    }
-
-    .modal-card {
-      background: #ffffff;
-      border-radius: 22px;
-      width: 100%;
-      max-width: 490px;
-      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.16);
-      transform: translateY(16px) scale(0.98);
-      transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-      overflow: hidden;
-      border: 1px solid rgba(0, 0, 0, 0.08);
-    }
-
-    .modal-overlay.active .modal-card {
-      transform: translateY(0) scale(1);
-    }
-
-    .modal-header {
-      padding: 22px 26px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      border-bottom: 1px solid rgba(0, 0, 0, 0.06);
-    }
-
-    .modal-title {
-      font-size: 18px;
-      font-weight: 600;
-      letter-spacing: -0.02em;
-      color: var(--ink);
-    }
-
-    .modal-close-btn {
-      background: none;
-      border: none;
-      color: var(--mute);
-      cursor: pointer;
-      padding: 6px;
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      transition: color 0.15s ease, background-color 0.15s ease;
-    }
-
-    .modal-close-btn:hover {
-      color: var(--ink);
-      background-color: rgba(0, 0, 0, 0.05);
-    }
-
-    .modal-close-btn svg {
-      width: 18px;
-      height: 18px;
-    }
-
-    .modal-body {
-      padding: 24px 26px;
-    }
-
-    .modal-candidate-badge {
-      background: #f7f7f5;
-      border-radius: 12px;
-      padding: 12px 14px;
-      margin-bottom: 20px;
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-
-    .modal-avatar {
-      width: 36px;
-      height: 36px;
-      border-radius: 50%;
-      background: var(--ink);
-      color: #ffffff;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-weight: 600;
-      font-size: 14px;
-      flex-shrink: 0;
-    }
-
-    .modal-cand-info h4 {
-      font-size: 14px;
-      font-weight: 600;
-      color: var(--ink);
-    }
-
-    .modal-cand-info p {
-      font-size: 12px;
-      color: var(--sub);
-      margin-top: 1px;
-    }
-
-    .form-field {
-      margin-bottom: 18px;
-    }
-
-    .form-label {
-      display: block;
-      font-size: 13px;
-      font-weight: 500;
-      color: var(--ink);
-      margin-bottom: 7px;
-    }
-
-    .select-container {
-      position: relative;
-    }
-
-    .select-container::after {
-      content: "";
-      position: absolute;
-      right: 14px;
-      top: 50%;
-      transform: translateY(-50%);
-      width: 8px;
-      height: 5px;
-      background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6'%3E%3Cpath fill='%237b7b7b' d='M0 0l5 5 5-5z'/%3E%3C/svg%3E") no-repeat center;
-      pointer-events: none;
-    }
-
-    .form-input, .form-select, .form-textarea {
-      width: 100%;
-      border: 1px solid rgba(17, 17, 17, 0.15);
-      border-radius: 10px;
-      padding: 10px 14px;
-      font-size: 13.5px;
-      font-family: inherit;
-      color: var(--ink);
-      background: #ffffff;
-      outline: none;
-      transition: border-color 0.2s ease, box-shadow 0.2s ease;
-    }
-
-    .form-select {
-      appearance: none;
-      -webkit-appearance: none;
-      padding-right: 32px;
-      cursor: pointer;
-    }
-
-    .form-input:focus, .form-select:focus, .form-textarea:focus {
-      border-color: var(--ink);
-      box-shadow: 0 0 0 3px rgba(17, 17, 17, 0.08);
-    }
-
-    .form-helper {
-      display: block;
-      font-size: 11.5px;
-      color: var(--mute);
-      margin-top: 5px;
-    }
-
-    .form-textarea {
-      resize: vertical;
-      min-height: 82px;
-    }
-
-    .modal-footer {
-      padding: 16px 26px 22px;
-      display: flex;
-      align-items: center;
-      justify-content: flex-end;
-      gap: 10px;
-      border-top: 1px solid rgba(0, 0, 0, 0.06);
-    }
-
-    .btn-modal-cancel {
-      background: transparent;
-      border: 1px solid rgba(0, 0, 0, 0.14);
-      color: #444444;
-      padding: 10px 18px;
-      border-radius: 999px;
-      font-size: 13.5px;
-      font-weight: 500;
-      font-family: inherit;
-      cursor: pointer;
-      transition: background 0.15s ease, border-color 0.15s ease;
-    }
-
-    .btn-modal-cancel:hover {
-      background: rgba(0, 0, 0, 0.04);
-      border-color: rgba(0, 0, 0, 0.22);
-    }
-
-    .btn-modal-send {
-      background: var(--ink);
-      color: #ffffff;
-      border: none;
-      padding: 10px 22px;
-      border-radius: 999px;
-      font-size: 13.5px;
-      font-weight: 500;
-      font-family: inherit;
-      cursor: pointer;
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      transition: background 0.2s ease, transform 0.2s ease;
-    }
-
-    .btn-modal-send:hover {
-      background: #000000;
-      transform: translateY(-1px);
-    }
-
-    /* Toast Notification System */
-    .toast-tray {
-      position: fixed;
-      top: 24px;
-      right: 24px;
-      z-index: 2000;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-      pointer-events: none;
-    }
-
-    .toast-item {
-      pointer-events: auto;
-      background: #ffffff;
-      color: var(--ink);
-      padding: 14px 18px;
-      border-radius: 14px;
-      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12), 0 1px 3px rgba(0, 0, 0, 0.05);
-      border: 1px solid rgba(0, 0, 0, 0.06);
-      display: flex;
-      align-items: flex-start;
-      gap: 12px;
-      min-width: 330px;
-      max-width: 440px;
-      animation: toast-slide-in 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-      transition: opacity 0.25s ease, transform 0.25s ease;
-    }
-
-    .toast-item.toast-success {
-      border-left: 4px solid #22c55e;
-    }
-
-    .toast-item.toast-error {
-      border-left: 4px solid #ef4444;
-    }
-
-    @keyframes toast-slide-in {
-      from {
-        opacity: 0;
-        transform: translateY(-12px) scale(0.96);
-      }
-      to {
-        opacity: 1;
-        transform: translateY(0) scale(1);
-      }
-    }
-
-    .toast-icon {
-      color: #16a34a;
-      flex-shrink: 0;
-      margin-top: 1px;
-    }
-
-    .toast-error .toast-icon {
-      color: #dc2626;
-    }
-
-    .toast-icon svg {
-      width: 18px;
-      height: 18px;
-    }
-
-    .toast-text {
-      flex: 1;
-    }
-
-    .toast-title {
-      font-size: 13.5px;
-      font-weight: 600;
-      color: var(--ink);
-      margin-bottom: 2px;
-    }
-
-    .toast-detail {
-      font-size: 12.5px;
-      color: var(--sub);
-      line-height: 1.4;
-    }
-
-    .toast-close-x {
-      background: none;
-      border: none;
-      color: var(--mute);
-      cursor: pointer;
-      font-size: 15px;
-      line-height: 1;
-      padding: 2px;
-      margin-left: 4px;
-    }
-
-    .toast-close-x:hover {
-      color: var(--ink);
-    }
-
-    /* Page Footer */
-    footer.page-footer {
-      background: var(--bg);
-      border-top: 1px solid rgba(0, 0, 0, 0.06);
-      padding: 38px 24px;
-      text-align: center;
-      font-size: 13px;
-      color: var(--mute);
-    }
-
-    @media (max-width: 760px) {
-      nav {
-        justify-content: space-between;
-        padding: 22px 18px 0;
-      }
-      .nav-links {
-        display: none;
-      }
-      .brand {
-        margin-right: 0;
-      }
-      .btn-signin {
-        margin-left: 0;
-      }
-      .copy {
-        top: 16%;
-        width: 90vw;
-      }
-      .search-bar-container {
-        max-width: 100%;
-      }
-      .logos {
-        gap: 14px 24px;
-        font-size: 13px;
-      }
-      .discovery-toolbar {
-        flex-direction: column;
-        align-items: flex-start;
-      }
-      .candidates-grid {
-        grid-template-columns: 1fr;
-      }
-      .toast-tray {
-        left: 16px;
-        right: 16px;
-        top: 16px;
-      }
-      .toast-item {
-        min-width: 0;
-        width: 100%;
-      }
-    }
+:root {
+  --bg: #f7f7f5;
+  --ink: #111111;
+  --mute: #9a9a9a;
+  --sub: #7b7b7b;
+  --card-bg: #ffffff;
+  --border-subtle: rgba(17, 17, 17, 0.08);
+  --success: #15803d;
+  --success-bg: #f0fdf4;
+  --success-border: #bbf7d0;
+  --accent: #2563eb;
+  --accent-bg: #eff6ff;
+  --accent-border: #bfdbfe;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  min-height: 100%;
+  background-color: var(--bg);
+  color: var(--ink);
+  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+}
+
+/* Hero Section */
+.hero {
+  position: relative;
+  height: 100vh;
+  min-height: 680px;
+  overflow: hidden;
+  background-color: var(--bg);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+canvas#dots {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  z-index: 1;
+  pointer-events: none;
+}
+
+nav {
+  position: relative;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(16px, 2.4vw, 36px);
+  padding-top: 36px;
+  font-size: 13.5px;
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-right: 6px;
+  text-decoration: none;
+  color: var(--ink);
+  font-weight: 600;
+  font-size: 15px;
+  letter-spacing: -0.01em;
+}
+
+.brand svg {
+  width: 16px;
+  height: 18px;
+  fill: currentColor;
+}
+
+.nav-links {
+  display: flex;
+  align-items: center;
+  gap: clamp(14px, 2vw, 30px);
+  list-style: none;
+}
+
+.nav-links a {
+  color: #3a3a3a;
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+.nav-links a:hover {
+  color: #000000;
+}
+
+.nav-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: 10px;
+}
+
+.btn-create-profile {
+  background: transparent;
+  color: var(--ink);
+  border: 1px solid rgba(17, 17, 17, 0.22);
+  padding: 8px 18px;
+  border-radius: 999px;
+  font-weight: 500;
+  text-decoration: none;
+  font-size: 13.5px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: inherit;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.btn-create-profile:hover {
+  background: var(--ink);
+  color: #ffffff;
+  border-color: var(--ink);
+  transform: translateY(-1px);
+}
+
+.btn-signin {
+  background: var(--ink);
+  color: #ffffff;
+  padding: 9px 20px;
+  border-radius: 999px;
+  font-weight: 500;
+  text-decoration: none;
+  font-size: 13.5px;
+  transition: transform 0.25s ease, background-color 0.2s ease;
+  display: inline-block;
+  white-space: nowrap;
+}
+
+.btn-signin:hover {
+  transform: translateY(-1px);
+  background-color: #000;
+}
+
+/* Centered Copy Block */
+.copy {
+  position: absolute;
+  left: 50%;
+  top: 21%;
+  transform: translateX(-50%);
+  text-align: center;
+  width: min(92vw, 740px);
+  z-index: 3;
+  pointer-events: auto;
+}
+
+h1 {
+  font-weight: 500;
+  letter-spacing: -0.035em;
+  line-height: 1.04;
+  font-size: clamp(38px, 3.75vw, 68px);
+}
+
+h1 .line-1 {
+  display: block;
+  color: var(--mute);
+}
+
+h1 .line-2 {
+  display: block;
+  color: var(--ink);
+}
+
+.subline {
+  margin-top: 18px;
+  margin-left: auto;
+  margin-right: auto;
+  max-width: 440px;
+  color: var(--sub);
+  font-size: clamp(13px, 1.02vw, 15.5px);
+  line-height: 1.45;
+  font-weight: 400;
+}
+
+/* Search Bar Below Subline */
+.search-bar-container {
+  margin-top: 24px;
+  width: 100%;
+  max-width: 490px;
+  margin-left: auto;
+  margin-right: auto;
+  position: relative;
+}
+
+.search-bar {
+  display: flex;
+  align-items: center;
+  background: #ffffff;
+  border: 1px solid rgba(17, 17, 17, 0.14);
+  border-radius: 999px;
+  padding: 6px 7px 6px 18px;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.04);
+  transition: border-color 0.25s ease, box-shadow 0.25s ease;
+  position: relative;
+}
+
+.search-bar:focus-within {
+  border-color: var(--ink);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.08), 0 0 0 3px rgba(17, 17, 17, 0.05);
+}
+
+.search-bar.is-listening {
+  border-color: #ef4444;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.2), 0 6px 20px rgba(239, 68, 68, 0.1);
+}
+
+.search-icon-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  margin-right: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--mute);
+  cursor: pointer;
+  transition: color 0.2s ease;
+}
+
+.search-icon-btn:hover {
+  color: var(--ink);
+}
+
+.search-icon-btn svg {
+  width: 18px;
+  height: 18px;
+}
+
+.search-input {
+  flex: 1;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: 14px;
+  font-family: inherit;
+  color: var(--ink);
+  letter-spacing: -0.01em;
+  min-width: 0;
+}
+
+.search-input::placeholder {
+  color: var(--mute);
+  opacity: 0.95;
+}
+
+.clear-search-btn {
+  background: none;
+  border: none;
+  color: var(--mute);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 50%;
+  margin-right: 4px;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.2s ease;
+}
+
+.clear-search-btn:hover {
+  color: var(--ink);
+}
+
+.clear-search-btn svg {
+  width: 15px;
+  height: 15px;
+}
+
+.mic-button {
+  position: relative;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  border: none;
+  background: #f2f2ef;
+  color: #4a4a4a;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all 0.2s ease;
+}
+
+.mic-button:hover {
+  background: #e7e7e3;
+  color: var(--ink);
+  transform: scale(1.04);
+}
+
+.mic-button svg {
+  width: 17px;
+  height: 17px;
+  position: relative;
+  z-index: 2;
+}
+
+.mic-button.listening {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+.mic-ping-ring {
+  position: absolute;
+  inset: -3px;
+  border-radius: 50%;
+  border: 2px solid #ef4444;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.mic-button.listening .mic-ping-ring {
+  animation: mic-pulse 1.4s cubic-bezier(0, 0.2, 0.8, 1) infinite;
+}
+
+@keyframes mic-pulse {
+  0% {
+    transform: scale(0.9);
+    opacity: 0.8;
+  }
+  100% {
+    transform: scale(1.5);
+    opacity: 0;
+  }
+}
+
+.speech-feedback {
+  font-size: 11.5px;
+  color: #dc2626;
+  font-weight: 500;
+  margin-top: 6px;
+  height: 15px;
+  text-align: center;
+  opacity: 0;
+  transform: translateY(-3px);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  pointer-events: none;
+}
+
+.speech-feedback.active {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Rainbow Glow CTA Button */
+.cta-wrapper {
+  position: relative;
+  display: inline-block;
+  margin-top: 18px;
+}
+
+.cta-glow {
+  position: absolute;
+  left: 10%;
+  right: 10%;
+  bottom: -6px;
+  height: 16px;
+  border-radius: 50%;
+  background: linear-gradient(90deg, #ffcf5a, #7dffa8, #5ad7ff, #9b7bff, #ff6fd8, #ffb36b);
+  filter: blur(9px);
+  opacity: 0.85;
+  z-index: 1;
+  pointer-events: none;
+  transition: opacity 0.3s ease, filter 0.3s ease, bottom 0.3s ease;
+}
+
+.cta-btn {
+  position: relative;
+  z-index: 2;
+  display: inline-block;
+  background: var(--ink);
+  color: #ffffff;
+  font-size: 13.5px;
+  font-weight: 500;
+  padding: 11px 22px;
+  border-radius: 999px;
+  text-decoration: none;
+  letter-spacing: -0.005em;
+  transition: transform 0.3s ease, background-color 0.2s ease;
+}
+
+.cta-wrapper:hover .cta-glow {
+  opacity: 1;
+  filter: blur(12px);
+  bottom: -9px;
+}
+
+.cta-wrapper:hover .cta-btn {
+  transform: translateY(-1px);
+}
+
+/* Partner Logos */
+.logos {
+  position: absolute;
+  bottom: clamp(24px, 5vh, 52px);
+  left: 0;
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: clamp(24px, 4.4vw, 64px);
+  flex-wrap: wrap;
+  padding: 0 16px;
+  z-index: 3;
+  color: #8d8d8d;
+  font-size: clamp(13.5px, 1.15vw, 16.5px);
+  font-weight: 500;
+  letter-spacing: -0.01em;
+}
+
+.logo-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  user-select: none;
+}
+
+.logo-item svg {
+  width: 17px;
+  height: 17px;
+  fill: currentColor;
+}
+
+/* Below-the-Fold Discovery Section */
+.discovery-section {
+  background-color: var(--bg);
+  position: relative;
+  z-index: 3;
+  padding: clamp(60px, 7vw, 96px) clamp(20px, 4vw, 48px) clamp(40px, 5vw, 64px);
+  border-top: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.discovery-container {
+  max-width: 1140px;
+  margin: 0 auto;
+}
+
+.discovery-header {
+  text-align: center;
+  margin-bottom: 36px;
+}
+
+.discovery-pill-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: #4b4b4b;
+  background: rgba(0, 0, 0, 0.04);
+  padding: 5px 14px;
+  border-radius: 999px;
+  margin-bottom: 14px;
+}
+
+.discovery-title {
+  font-size: clamp(28px, 2.7vw, 40px);
+  font-weight: 500;
+  letter-spacing: -0.03em;
+  color: var(--ink);
+  line-height: 1.15;
+}
+
+.discovery-sub {
+  margin-top: 10px;
+  color: var(--sub);
+  font-size: clamp(14px, 1.05vw, 16px);
+  max-width: 540px;
+  margin-left: auto;
+  margin-right: auto;
+  line-height: 1.5;
+}
+
+.discovery-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-top: 32px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.results-status {
+  font-size: 13.5px;
+  color: var(--sub);
+  font-weight: 500;
+}
+
+.results-status strong {
+  color: var(--ink);
+}
+
+.toolbar-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.filter-chips {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.filter-chips-label {
+  font-size: 12px;
+  color: var(--mute);
+}
+
+.filter-chip {
+  background: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  color: #444444;
+  padding: 5px 13px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.filter-chip:hover {
+  border-color: var(--ink);
+  color: var(--ink);
+}
+
+.filter-chip.active {
+  background: var(--ink);
+  color: #ffffff;
+  border-color: var(--ink);
+}
+
+.btn-publish-profile-trigger {
+  background: #ffffff;
+  border: 1px solid rgba(17, 17, 17, 0.18);
+  color: var(--ink);
+  padding: 6px 14px;
+  border-radius: 999px;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s ease;
+  font-family: inherit;
+}
+
+.btn-publish-profile-trigger:hover {
+  background: var(--ink);
+  color: #ffffff;
+  border-color: var(--ink);
+}
+
+/* Candidate Cards Grid */
+.candidates-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(330px, 1fr));
+  gap: 24px;
+  margin-top: 26px;
+}
+
+.candidate-card {
+  background: var(--card-bg);
+  border: 1px solid var(--border-subtle);
+  border-radius: 20px;
+  padding: 26px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.02);
+  transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+}
+
+.candidate-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.06);
+  border-color: rgba(17, 17, 17, 0.16);
+}
+
+.card-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.candidate-profile {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.candidate-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--ink);
+  color: #ffffff;
+  font-weight: 600;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  letter-spacing: -0.02em;
+  flex-shrink: 0;
+}
+
+.candidate-name {
+  font-size: 19px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+}
+
+.candidate-role-tag {
+  display: inline-block;
+  font-size: 11.5px;
+  font-weight: 500;
+  color: #616161;
+  background: #f0f0ee;
+  padding: 3px 9px;
+  border-radius: 6px;
+  margin-top: 3px;
+}
+
+.availability-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--success);
+  background: var(--success-bg);
+  border: 1px solid var(--success-border);
+  padding: 4px 9px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.dot-live {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #22c55e;
+  box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.2);
+}
+
+.card-middle {
+  margin-bottom: 20px;
+}
+
+.skills-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+
+.skill-pill {
+  font-size: 12px;
+  font-weight: 500;
+  color: #333333;
+  background: #f4f4f2;
+  border: 1px solid rgba(0, 0, 0, 0.03);
+  padding: 4px 10px;
+  border-radius: 8px;
+  transition: background-color 0.2s ease;
+}
+
+.skill-pill.match-highlight {
+  background: #fef08a;
+  color: #854d0e;
+  border-color: #fde047;
+}
+
+.pow-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  color: #262626;
+  background: #fafafa;
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  border-radius: 9px;
+  padding: 9px 12px;
+  margin-bottom: 10px;
+  font-weight: 500;
+}
+
+.pow-icon {
+  width: 15px;
+  height: 15px;
+  color: var(--ink);
+  flex-shrink: 0;
+}
+
+.candidate-meta-links {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+
+.meta-link-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11.5px;
+  color: #4b4b4b;
+  background: #f0f0ee;
+  padding: 3px 8px;
+  border-radius: 6px;
+  text-decoration: none;
+  transition: all 0.15s ease;
+}
+
+.meta-link-pill:hover {
+  background: var(--ink);
+  color: #ffffff;
+}
+
+.meta-link-pill svg {
+  width: 12px;
+  height: 12px;
+}
+
+.availability-text {
+  font-size: 12px;
+  color: var(--sub);
+  line-height: 1.4;
+  padding-left: 2px;
+}
+
+.card-bottom {
+  margin-top: auto;
+  padding-top: 14px;
+  border-top: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+/* Invite to Team Black Pill Button */
+.btn-invite-team {
+  width: 100%;
+  background: var(--ink);
+  color: #ffffff;
+  border: 1px solid transparent;
+  padding: 11px 18px;
+  border-radius: 999px;
+  font-size: 13.5px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  transition: all 0.2s ease;
+}
+
+.btn-invite-team:hover:not(:disabled) {
+  background: #000000;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15);
+}
+
+.btn-invite-team.is-connected {
+  background: var(--success-bg);
+  color: var(--success);
+  border: 1px solid var(--success-border);
+  cursor: default;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+.btn-invite-team.is-connected svg {
+  width: 14px;
+  height: 14px;
+  fill: currentColor;
+}
+
+/* Empty Search State */
+.empty-state {
+  text-align: center;
+  padding: 68px 24px;
+  background: #ffffff;
+  border-radius: 20px;
+  border: 1px dashed rgba(0, 0, 0, 0.12);
+  margin-top: 26px;
+}
+
+.empty-icon {
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  background: #f4f4f2;
+  color: var(--mute);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 16px;
+}
+
+.empty-icon svg {
+  width: 26px;
+  height: 26px;
+  stroke: currentColor;
+}
+
+.empty-title {
+  font-size: 18px;
+  font-weight: 500;
+  color: var(--ink);
+  margin-bottom: 8px;
+}
+
+.empty-desc {
+  font-size: 13.5px;
+  color: var(--sub);
+  max-width: 440px;
+  margin: 0 auto 20px;
+  line-height: 1.5;
+}
+
+.btn-reset-filter {
+  background: var(--ink);
+  color: #ffffff;
+  border: none;
+  border-radius: 999px;
+  padding: 9px 22px;
+  font-size: 13px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.btn-reset-filter:hover {
+  background: #000000;
+}
+
+/* Group & Team Matchmaking Board */
+.groups-section {
+  background-color: var(--bg);
+  position: relative;
+  z-index: 3;
+  padding: 0 clamp(20px, 4vw, 48px) clamp(64px, 8vw, 100px);
+}
+
+.groups-container {
+  max-width: 1140px;
+  margin: 0 auto;
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
+  padding-top: clamp(48px, 6vw, 72px);
+}
+
+.groups-header {
+  text-align: center;
+  margin-bottom: 36px;
+}
+
+.groups-pill-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: #1e40af;
+  background: #dbeafe;
+  padding: 5px 14px;
+  border-radius: 999px;
+  margin-bottom: 14px;
+}
+
+.groups-title {
+  font-size: clamp(26px, 2.5vw, 36px);
+  font-weight: 500;
+  letter-spacing: -0.03em;
+  color: var(--ink);
+  line-height: 1.15;
+}
+
+.groups-sub {
+  margin-top: 10px;
+  color: var(--sub);
+  font-size: clamp(14px, 1.05vw, 16px);
+  max-width: 540px;
+  margin-left: auto;
+  margin-right: auto;
+  line-height: 1.5;
+}
+
+.groups-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(330px, 1fr));
+  gap: 24px;
+  margin-top: 24px;
+}
+
+.group-card {
+  background: var(--card-bg);
+  border: 1px solid var(--border-subtle);
+  border-radius: 20px;
+  padding: 26px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.02);
+  transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+}
+
+.group-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.06);
+  border-color: rgba(17, 17, 17, 0.16);
+}
+
+.group-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.group-name {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--ink);
+  letter-spacing: -0.02em;
+}
+
+.group-status-pill {
+  font-size: 11px;
+  font-weight: 600;
+  color: #1e40af;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  padding: 4px 9px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.group-project-desc {
+  font-size: 13.5px;
+  color: #444444;
+  line-height: 1.45;
+  margin-bottom: 16px;
+}
+
+.group-seeking-box {
+  background: #fafafa;
+  border: 1px solid rgba(17, 17, 17, 0.06);
+  border-left: 3px solid var(--ink);
+  border-radius: 10px;
+  padding: 12px 14px;
+  margin-bottom: 16px;
+}
+
+.seeking-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 600;
+  color: var(--mute);
+  display: block;
+  margin-bottom: 3px;
+}
+
+.seeking-role {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.group-capacity-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--sub);
+  margin-bottom: 16px;
+  padding: 0 2px;
+}
+
+.capacity-dots {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.capacity-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #e5e5e0;
+}
+
+.capacity-dot.filled {
+  background: var(--ink);
+}
+
+.group-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 20px;
+}
+
+.group-tag {
+  font-size: 11.5px;
+  color: #444;
+  background: #f2f2ef;
+  padding: 3px 9px;
+  border-radius: 6px;
+}
+
+.btn-join-group {
+  width: 100%;
+  background: var(--ink);
+  color: #ffffff;
+  border: 1px solid transparent;
+  padding: 11px 18px;
+  border-radius: 999px;
+  font-size: 13.5px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  transition: all 0.2s ease;
+}
+
+.btn-join-group:hover:not(:disabled) {
+  background: #000000;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15);
+}
+
+.btn-join-group.is-applied {
+  background: var(--success-bg);
+  color: var(--success);
+  border: 1px solid var(--success-border);
+  cursor: default;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+.btn-join-group.is-applied svg {
+  width: 14px;
+  height: 14px;
+  fill: currentColor;
+}
+
+/* Modals System (Create Profile & Invite Handshake) */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(17, 17, 17, 0.45);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  opacity: 0;
+  transition: opacity 0.25s ease;
+  pointer-events: none;
+}
+
+.modal-overlay.active {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.modal-card {
+  background: #ffffff;
+  border-radius: 22px;
+  width: 100%;
+  max-width: 520px;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.16);
+  transform: translateY(16px) scale(0.98);
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  overflow: hidden;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.modal-overlay.active .modal-card {
+  transform: translateY(0) scale(1);
+}
+
+.modal-header {
+  padding: 22px 26px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  flex-shrink: 0;
+}
+
+.modal-title-group h3 {
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+}
+
+.modal-title-group p {
+  font-size: 12px;
+  color: var(--sub);
+  margin-top: 2px;
+}
+
+.modal-close-btn {
+  background: none;
+  border: none;
+  color: var(--mute);
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.15s ease, background-color 0.15s ease;
+}
+
+.modal-close-btn:hover {
+  color: var(--ink);
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+.modal-close-btn svg {
+  width: 18px;
+  height: 18px;
+}
+
+.modal-body {
+  padding: 24px 26px;
+  overflow-y: auto;
+}
+
+.modal-candidate-badge {
+  background: #f7f7f5;
+  border-radius: 12px;
+  padding: 12px 14px;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.modal-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--ink);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.modal-cand-info h4 {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.modal-cand-info p {
+  font-size: 12px;
+  color: var(--sub);
+  margin-top: 1px;
+}
+
+.form-row-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+}
+
+.form-field {
+  margin-bottom: 16px;
+}
+
+.form-label {
+  display: block;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink);
+  margin-bottom: 6px;
+}
+
+.form-label .required-star {
+  color: #dc2626;
+  margin-left: 2px;
+}
+
+.select-container {
+  position: relative;
+}
+
+.select-container::after {
+  content: "";
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 8px;
+  height: 5px;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6'%3E%3Cpath fill='%237b7b7b' d='M0 0l5 5 5-5z'/%3E%3C/svg%3E") no-repeat center;
+  pointer-events: none;
+}
+
+.form-input, .form-select, .form-textarea {
+  width: 100%;
+  border: 1px solid rgba(17, 17, 17, 0.15);
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: 13.5px;
+  font-family: inherit;
+  color: var(--ink);
+  background: #ffffff;
+  outline: none;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.form-select {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 32px;
+  cursor: pointer;
+}
+
+.form-input:focus, .form-select:focus, .form-textarea:focus {
+  border-color: var(--ink);
+  box-shadow: 0 0 0 3px rgba(17, 17, 17, 0.08);
+}
+
+.form-helper {
+  display: block;
+  font-size: 11.5px;
+  color: var(--mute);
+  margin-top: 4px;
+}
+
+.form-textarea {
+  resize: vertical;
+  min-height: 74px;
+}
+
+/* Resume File Upload Dropzone */
+.resume-dropzone {
+  border: 1.5px dashed rgba(17, 17, 17, 0.2);
+  border-radius: 12px;
+  padding: 16px;
+  text-align: center;
+  background: #fafafa;
+  cursor: pointer;
+  position: relative;
+  transition: all 0.2s ease;
+}
+
+.resume-dropzone:hover {
+  border-color: var(--ink);
+  background: #f5f5f2;
+}
+
+.resume-file-input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  width: 100%;
+  height: 100%;
+  cursor: pointer;
+}
+
+.dropzone-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  pointer-events: none;
+}
+
+.dropzone-icon {
+  width: 28px;
+  height: 28px;
+  color: var(--mute);
+  margin-bottom: 2px;
+}
+
+.dropzone-title {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink);
+}
+
+.dropzone-hint {
+  font-size: 11.5px;
+  color: var(--mute);
+}
+
+.resume-file-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--success-bg);
+  border: 1px solid var(--success-border);
+  color: var(--success);
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 12.5px;
+  font-weight: 500;
+  margin-top: 8px;
+}
+
+.resume-file-badge svg {
+  width: 14px;
+  height: 14px;
+}
+
+.btn-remove-resume {
+  background: none;
+  border: none;
+  color: #dc2626;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 2px 4px;
+  margin-left: 4px;
+}
+
+.modal-footer {
+  padding: 16px 26px 22px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
+  flex-shrink: 0;
+}
+
+.btn-modal-cancel {
+  background: transparent;
+  border: 1px solid rgba(0, 0, 0, 0.14);
+  color: #444444;
+  padding: 10px 18px;
+  border-radius: 999px;
+  font-size: 13.5px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.btn-modal-cancel:hover {
+  background: rgba(0, 0, 0, 0.04);
+  border-color: rgba(0, 0, 0, 0.22);
+}
+
+.btn-modal-send {
+  background: var(--ink);
+  color: #ffffff;
+  border: none;
+  padding: 10px 22px;
+  border-radius: 999px;
+  font-size: 13.5px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.btn-modal-send:hover {
+  background: #000000;
+  transform: translateY(-1px);
+}
+
+/* Toast Notification System */
+.toast-tray {
+  position: fixed;
+  top: 24px;
+  right: 24px;
+  z-index: 2000;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  pointer-events: none;
+}
+
+.toast-item {
+  pointer-events: auto;
+  background: #ffffff;
+  color: var(--ink);
+  padding: 14px 18px;
+  border-radius: 14px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12), 0 1px 3px rgba(0, 0, 0, 0.05);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  min-width: 330px;
+  max-width: 440px;
+  animation: toast-slide-in 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+
+.toast-item.toast-success {
+  border-left: 4px solid #22c55e;
+}
+
+.toast-item.toast-error {
+  border-left: 4px solid #ef4444;
+}
+
+.toast-item.toast-info {
+  border-left: 4px solid #3b82f6;
+}
+
+@keyframes toast-slide-in {
+  from {
+    opacity: 0;
+    transform: translateY(-12px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.toast-icon {
+  color: #16a34a;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.toast-error .toast-icon {
+  color: #dc2626;
+}
+
+.toast-info .toast-icon {
+  color: #2563eb;
+}
+
+.toast-icon svg {
+  width: 18px;
+  height: 18px;
+}
+
+.toast-text {
+  flex: 1;
+}
+
+.toast-title {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--ink);
+  margin-bottom: 2px;
+}
+
+.toast-detail {
+  font-size: 12.5px;
+  color: var(--sub);
+  line-height: 1.4;
+}
+
+.toast-close-x {
+  background: none;
+  border: none;
+  color: var(--mute);
+  cursor: pointer;
+  font-size: 15px;
+  line-height: 1;
+  padding: 2px;
+  margin-left: 4px;
+}
+
+.toast-close-x:hover {
+  color: var(--ink);
+}
+
+/* Page Footer */
+footer.page-footer {
+  background: var(--bg);
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
+  padding: 38px 24px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--mute);
+}
+
+@media (max-width: 760px) {
+  nav {
+    justify-content: space-between;
+    padding: 22px 18px 0;
+  }
+  .nav-links {
+    display: none;
+  }
+  .brand {
+    margin-right: 0;
+  }
+  .btn-signin {
+    margin-left: 0;
+  }
+  .copy {
+    top: 16%;
+    width: 90vw;
+  }
+  .search-bar-container {
+    max-width: 100%;
+  }
+  .logos {
+    gap: 14px 24px;
+    font-size: 13px;
+  }
+  .discovery-toolbar {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .candidates-grid, .groups-grid {
+    grid-template-columns: 1fr;
+  }
+  .form-row-2 {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+  .toast-tray {
+    left: 16px;
+    right: 16px;
+    top: 16px;
+  }
+  .toast-item {
+    min-width: 0;
+    width: 100%;
+  }
+}
+
   </style>
 </head>
 <body>
-  <!-- Hero Section with Canvas Hands Background -->
+<!-- Hero Section with Canvas Hands Background -->
   <section class="hero">
     <!-- Matrix dot canvas -->
     <canvas id="dots"></canvas>
@@ -1173,13 +1604,17 @@
 
       <ul class="nav-links">
         <li><a href="#discovery">Explore</a></li>
+        <li><a href="#groups">Teams</a></li>
         <li><a href="#platform">Platform</a></li>
         <li><a href="#marketplace">Marketplace</a></li>
         <li><a href="#creators">Creators</a></li>
         <li><a href="#resources">Resources</a></li>
       </ul>
 
-      <a href="#signin" class="btn-signin">Sign In</a>
+      <div class="nav-actions">
+        <button type="button" class="btn-create-profile" id="openCreateProfileNavBtn">Create Profile</button>
+        <a href="#signin" class="btn-signin">Sign In</a>
+      </div>
     </nav>
 
     <!-- Centered Copy Block -->
@@ -1280,21 +1715,29 @@
           <div class="results-status" id="resultsStatusText">
             Showing all candidates
           </div>
-          <div class="filter-chips">
-            <span class="filter-chips-label">Quick filter:</span>
-            <button type="button" class="filter-chip active" data-filter="">All</button>
-            <button type="button" class="filter-chip" data-filter="C++">C++</button>
-            <button type="button" class="filter-chip" data-filter="DSA">DSA</button>
-            <button type="button" class="filter-chip" data-filter="Backend">Backend</button>
-            <button type="button" class="filter-chip" data-filter="React">React</button>
-            <button type="button" class="filter-chip" data-filter="LeetCode">LeetCode</button>
+          <div class="toolbar-controls">
+            <div class="filter-chips">
+              <span class="filter-chips-label">Quick filter:</span>
+              <button type="button" class="filter-chip active" data-filter="">All</button>
+              <button type="button" class="filter-chip" data-filter="C++">C++</button>
+              <button type="button" class="filter-chip" data-filter="DSA">DSA</button>
+              <button type="button" class="filter-chip" data-filter="Backend">Backend</button>
+              <button type="button" class="filter-chip" data-filter="React">React</button>
+              <button type="button" class="filter-chip" data-filter="LeetCode">LeetCode</button>
+            </div>
+            <button type="button" class="btn-publish-profile-trigger" id="openCreateProfileHeroBtn">
+              <svg viewBox="0 0 20 20" width="14" height="14" fill="currentColor">
+                <path d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z"/>
+              </svg>
+              <span>+ Create Profile</span>
+            </button>
           </div>
         </div>
       </div>
 
       <!-- Candidate Cards Grid -->
       <div class="candidates-grid" id="candidatesGrid">
-        <!-- Rendered dynamically via state controller -->
+        <!-- Rendered dynamically from live API -->
       </div>
 
       <!-- Empty State View -->
@@ -1311,6 +1754,32 @@
           We couldn't find any quiet builders matching "<strong id="emptyQueryDisplay"></strong>". Try searching for skills like <strong>C++</strong>, <strong>DSA</strong>, <strong>Backend</strong>, or <strong>React</strong>.
         </p>
         <button type="button" class="btn-reset-filter" id="resetSearchBtn">Reset Filters</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Group & Team Matchmaking Board -->
+  <section class="groups-section" id="groups">
+    <div class="groups-container">
+      <div class="groups-header">
+        <div class="groups-pill-tag">
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+            <circle cx="9" cy="7" r="4"></circle>
+            <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+            <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+          </svg>
+          <span>Team Matchmaking</span>
+        </div>
+        <h2 class="groups-title">Active Developer Groups &amp; Hackathon Teams</h2>
+        <p class="groups-sub">
+          Cross-functional squads actively recruiting quiet builders to build high-agency projects.
+        </p>
+      </div>
+
+      <!-- Groups Cards Grid -->
+      <div class="groups-grid" id="groupsGrid">
+        <!-- Rendered dynamically from live API / store -->
       </div>
     </div>
   </section>
@@ -1375,6 +1844,111 @@
     </div>
   </div>
 
+  <!-- Create Your Profile Modal -->
+  <div class="modal-overlay" id="createProfileModalOverlay" role="dialog" aria-modal="true" aria-labelledby="createProfileTitle">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div class="modal-title-group">
+          <h3 id="createProfileTitle">Create Your Builder Profile</h3>
+          <p>Let your proof of work speak for itself — join the quiet builders network.</p>
+        </div>
+        <button type="button" class="modal-close-btn" id="closeCreateProfileModalBtn" aria-label="Close modal">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"/>
+            <line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>
+
+      <form id="createProfileForm">
+        <div class="modal-body">
+          <div class="form-row-2">
+            <div class="form-field">
+              <label for="profNameInput" class="form-label">Full Name <span class="required-star">*</span></label>
+              <input type="text" id="profNameInput" class="form-input" placeholder="e.g. Priyam Roy" required />
+            </div>
+            <div class="form-field">
+              <label for="profRoleTagInput" class="form-label">Role Tag / Title</label>
+              <input type="text" id="profRoleTagInput" class="form-input" placeholder="e.g. Backend C++ Engineer" />
+            </div>
+          </div>
+
+          <div class="form-field">
+            <label for="profSkillsInput" class="form-label">Skills (comma separated)</label>
+            <input type="text" id="profSkillsInput" class="form-input" placeholder="e.g. C++, DSA, Rust, Node.js" />
+            <span class="form-helper">Separate skills with commas (e.g. C++, DSA, Backend)</span>
+          </div>
+
+          <div class="form-field">
+            <label for="profProofInput" class="form-label">Proof of Work Summary</label>
+            <input type="text" id="profProofInput" class="form-input" placeholder="e.g. 350+ LeetCode solved | Built Monolith Banking CLI" />
+            <span class="form-helper">Highlight key metrics, deployed links, or competitive ranking</span>
+          </div>
+
+          <div class="form-field">
+            <label for="profAvailabilitySelect" class="form-label">Availability Status</label>
+            <div class="select-container">
+              <select id="profAvailabilitySelect" class="form-select">
+                <option value="Open to Hackathon Teams & Dev Groups" selected>Open to Hackathon Teams & Dev Groups</option>
+                <option value="Looking for Backend / Systems Internship">Looking for Backend / Systems Internship</option>
+                <option value="Open for Open-Source Collaboration">Open for Open-Source Collaboration</option>
+                <option value="Available for Full-Time Roles">Available for Full-Time Roles</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Resume File Upload Dropzone -->
+          <div class="form-field">
+            <label class="form-label">Resume / CV (.pdf, .docx)</label>
+            <div class="resume-dropzone" id="resumeDropzone">
+              <input type="file" id="resumeFileInput" class="resume-file-input" accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" />
+              <div class="dropzone-inner">
+                <svg class="dropzone-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                  <polyline points="17 8 12 3 7 8"></polyline>
+                  <line x1="12" y1="3" x2="12" y2="15"></line>
+                </svg>
+                <span class="dropzone-title">Click to upload or drag resume here</span>
+                <span class="dropzone-hint">PDF or DOCX format (Max 10MB)</span>
+              </div>
+            </div>
+            <div id="resumePreviewWrap" style="display: none;">
+              <div class="resume-file-badge">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                  <polyline points="14 2 14 8 20 8"></polyline>
+                </svg>
+                <span id="resumeFileNameSpan">resume.pdf</span>
+                <button type="button" class="btn-remove-resume" id="removeResumeBtn" title="Remove resume file">&times;</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-row-2">
+            <div class="form-field">
+              <label for="profGithubInput" class="form-label">GitHub URL (Optional)</label>
+              <input type="url" id="profGithubInput" class="form-input" placeholder="https://github.com/username" />
+            </div>
+            <div class="form-field">
+              <label for="profPortfolioInput" class="form-label">Portfolio / Profile Link (Optional)</label>
+              <input type="url" id="profPortfolioInput" class="form-input" placeholder="https://leetcode.com/username" />
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn-modal-cancel" id="cancelCreateProfileBtn">Cancel</button>
+          <button type="submit" class="btn-modal-send">
+            <span>Publish Profile</span>
+            <svg viewBox="0 0 20 20" width="15" height="15" fill="currentColor">
+              <path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z"/>
+            </svg>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <!-- Toast Container -->
   <div class="toast-tray" id="toastTray" aria-live="polite"></div>
 
@@ -1383,947 +1957,1394 @@
     <p>Kindred © 2026 — Bridging the gap between quiet builders and project leaders.</p>
   </footer>
 
-  <!-- CANVAS DOT-MATRIX HANDS ANIMATION SCRIPT (KEPT 100% AS-IS) -->
+  <!-- Canvas Dot-Matrix Hands Background Simulation -->
   <script>
-    (function() {
-      const canvas = document.getElementById('dots');
-      const ctx = canvas.getContext('2d');
+/**
+ * Kindred Canvas Dot-Matrix Hands Background Simulation
+ * Exact math, crop tiles, dissolve shaders, and loop preserved 100% as-is.
+ */
+function initDotMatrixCanvas() {
+  const canvas = document.getElementById('dots');
+  if (!canvas) return;
 
-      const SHEET_URL = 'https://images.higgs.ai/?default=1&output=webp&url=https%3A%2F%2Fd8j0ntlcm91z4.cloudfront.net%2Fuser_38xzZboKViGWJOttwIXH07lWA1P%2Fhf_20261030_025250_100df7b8-31fd-4614-aa4a-c1b7d5b6b273.png&w=1600&q=85';
-      const SHEET_W = 2688;
-      const SHEET_H = 1520;
+  const ctx = canvas.getContext('2d');
 
-      // Crop coordinates in fractions [x, y, w, h]
-      const RECTS = {
-        LA: [0, 0.06, 0.47, 0.40],
-        RA: [0.53, 0.06, 0.47, 0.40],
-        LB: [0, 0.55, 0.47, 0.40],
-        RB: [0.53, 0.55, 0.47, 0.40]
-      };
+  const SHEET_URL = 'https://images.higgs.ai/?default=1&output=webp&url=https%3A%2F%2Fd8j0ntlcm91z4.cloudfront.net%2Fuser_38xzZboKViGWJOttwIXH07lWA1P%2Fhf_20261030_025250_100df7b8-31fd-4614-aa4a-c1b7d5b6b273.png&w=1600&q=85';
+  const SHEET_W = 2688;
+  const SHEET_H = 1520;
 
-      const tiles = {};
-      let tilesLoaded = false;
+  // Crop coordinates in fractions [x, y, w, h]
+  const RECTS = {
+    LA: [0, 0.06, 0.47, 0.40],
+    RA: [0.53, 0.06, 0.47, 0.40],
+    LB: [0, 0.55, 0.47, 0.40],
+    RB: [0.53, 0.55, 0.47, 0.40]
+  };
 
-      // Prepare tiles
-      const img = new Image();
-      img.crossOrigin = "anonymous";
-      img.src = SHEET_URL;
-      img.onload = () => {
-        const sw = img.naturalWidth || 1600;
-        const sh = img.naturalHeight || 905;
+  const tiles = {};
+  let tilesLoaded = false;
 
-        for (const [key, [rx, ry, rw, rh]] of Object.entries(RECTS)) {
-          const tileCanvas = document.createElement('canvas');
-          const tw = 420;
-          const th = Math.round(tw * ((rh * sh) / (rw * sw)));
-          tileCanvas.width = tw;
-          tileCanvas.height = th;
-          const tctx = tileCanvas.getContext('2d');
-          tctx.imageSmoothingQuality = 'high';
-          tctx.imageSmoothingEnabled = true;
+  // Prepare tiles
+  const img = new Image();
+  img.crossOrigin = "anonymous";
+  img.src = SHEET_URL;
+  img.onload = () => {
+    const sw = img.naturalWidth || 1600;
+    const sh = img.naturalHeight || 905;
 
-          tctx.drawImage(
-            img,
-            rx * sw, ry * sh, rw * sw, rh * sh,
-            0, 0, tw, th
-          );
-          tiles[key] = { canvas: tileCanvas, aspect: (rh * 1520) / (rw * 2688) };
-        }
-        tilesLoaded = true;
-      };
+    for (const [key, [rx, ry, rw, rh]] of Object.entries(RECTS)) {
+      const tileCanvas = document.createElement('canvas');
+      const tw = 420;
+      const th = Math.round(tw * ((rh * sh) / (rw * sw)));
+      tileCanvas.width = tw;
+      tileCanvas.height = th;
+      const tctx = tileCanvas.getContext('2d');
+      tctx.imageSmoothingQuality = 'high';
+      tctx.imageSmoothingEnabled = true;
 
-      // Math helpers
-      function clamp(x, min, max) {
-        return Math.max(min, Math.min(max, x));
+      tctx.drawImage(
+        img,
+        rx * sw, ry * sh, rw * sw, rh * sh,
+        0, 0, tw, th
+      );
+      tiles[key] = { canvas: tileCanvas, aspect: (rh * 1520) / (rw * 2688) };
+    }
+    tilesLoaded = true;
+  };
+
+  // Math helpers
+  function clamp(x, min, max) {
+    return Math.max(min, Math.min(max, x));
+  }
+  function smooth(a, b, x) {
+    const t = clamp((x - a) / (b - a), 0, 1);
+    return t * t * (3 - 2 * t);
+  }
+  function mixAt(t, on, off, dur) {
+    return smooth(on, on + dur, t) * (1 - smooth(off, off + dur, t));
+  }
+  function hash(a, b) {
+    const s = Math.sin(a * 127.1 + b * 311.7) * 43758.5453123;
+    return s - Math.floor(s);
+  }
+
+  let W = 0, H = 0, DPR = 1;
+  let step = 7, rowStep = 14.35;
+  let cols = 0, rows = 0;
+  let R = 3.2;
+  let seeds = null;
+
+  // Offscreen field canvases
+  const fACanvas = document.createElement('canvas');
+  const fBCanvas = document.createElement('canvas');
+  const fACtx = fACanvas.getContext('2d', { willReadFrequently: true });
+  const fBCtx = fBCanvas.getContext('2d', { willReadFrequently: true });
+
+  function resize() {
+    W = window.innerWidth;
+    H = window.innerHeight;
+    DPR = Math.min(2, window.devicePixelRatio || 1);
+
+    canvas.width = Math.round(W * DPR);
+    canvas.height = Math.round(H * DPR);
+
+    step = Math.max(5, W / 205);
+    rowStep = step * 2.05;
+    cols = Math.ceil(W / step);
+    rows = Math.ceil(H / rowStep);
+    R = step * 0.46;
+
+    fACanvas.width = cols;
+    fACanvas.height = rows;
+    fBCanvas.width = cols;
+    fBCanvas.height = rows;
+
+    // Precompute seed array
+    seeds = new Float32Array(cols * rows);
+    for (let j = 0; j < rows; j++) {
+      const rowBias = hash(j * 3.1, 7.7);
+      for (let i = 0; i < cols; i++) {
+        const h = hash(i, j);
+        seeds[j * cols + i] = 0.55 * h + 0.45 * rowBias;
       }
-      function smooth(a, b, x) {
-        const t = clamp((x - a) / (b - a), 0, 1);
-        return t * t * (3 - 2 * t);
+    }
+  }
+
+  window.addEventListener('resize', resize);
+  resize();
+
+  const LOOP = 20;
+  const LEVELS = [0, 0.26, 0.52, 0.78, 1];
+
+  function render(timeSec) {
+    const t = ((timeSec % LOOP) + LOOP) % LOOP;
+
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    ctx.clearRect(0, 0, W, H);
+
+    if (!tilesLoaded || !seeds || cols === 0 || rows === 0) {
+      return;
+    }
+
+    const isPortrait = H > W;
+    const cy = isPortrait ? H * 0.66 : H * 0.54;
+    const hw = isPortrait ? W * 0.66 : W * 0.53;
+    const hh = hw * (0.40 * 1520) / (0.47 * 2688);
+
+    const a = (2 * Math.PI * t) / LOOP;
+
+    // Draw pose A into fA, pose B into fB
+    fACtx.setTransform(1, 0, 0, 1, 0, 0);
+    fACtx.fillStyle = '#ffffff';
+    fACtx.fillRect(0, 0, cols, rows);
+
+    fBCtx.setTransform(1, 0, 0, 1, 0, 0);
+    fBCtx.fillStyle = '#ffffff';
+    fBCtx.fillRect(0, 0, cols, rows);
+
+    const sx = cols / W;
+    const sy = rows / H;
+
+    // Draw Left Hand (Pose A: LA, Pose B: LB)
+    {
+      const ph = 0;
+      const reach = (0.035 * Math.sin(a + ph) + 0.012 * Math.sin(2 * a + 1.3 + ph)) * W;
+      const scale = 1 + 0.07 * Math.sin(a + 0.9 + ph);
+      const rot = 1 * 0.045 * Math.sin(a + 2.1 + ph);
+      const x = reach - W * 0.045;
+      const pivotX = 0;
+      const pivotY = cy;
+
+      function drawHand(fctx, tile) {
+        if (!tile) return;
+        fctx.save();
+        fctx.scale(sx, sy);
+        fctx.translate(pivotX, pivotY);
+        fctx.rotate(rot);
+        fctx.scale(scale, scale);
+        fctx.translate(-pivotX, -pivotY);
+        fctx.drawImage(tile.canvas, x, cy - hh / 2, hw, hh);
+        fctx.restore();
       }
-      function mixAt(t, on, off, dur) {
-        return smooth(on, on + dur, t) * (1 - smooth(off, off + dur, t));
-      }
-      function hash(a, b) {
-        const s = Math.sin(a * 127.1 + b * 311.7) * 43758.5453123;
-        return s - Math.floor(s);
-      }
 
-      let W = 0, H = 0, DPR = 1;
-      let step = 7, rowStep = 14.35;
-      let cols = 0, rows = 0;
-      let R = 3.2;
-      let seeds = null;
+      drawHand(fACtx, tiles.LA);
+      drawHand(fBCtx, tiles.LB);
+    }
 
-      // Offscreen field canvases
-      const fACanvas = document.createElement('canvas');
-      const fBCanvas = document.createElement('canvas');
-      const fACtx = fACanvas.getContext('2d', { willReadFrequently: true });
-      const fBCtx = fBCanvas.getContext('2d', { willReadFrequently: true });
+    // Draw Right Hand (Pose A: RA, Pose B: RB)
+    {
+      const ph = Math.PI;
+      const reach = (0.035 * Math.sin(a + ph) + 0.012 * Math.sin(2 * a + 1.3 + ph)) * W;
+      const scale = 1 + 0.07 * Math.sin(a + 0.9 + ph);
+      const rot = -1 * 0.045 * Math.sin(a + 2.1 + ph);
+      const x = W - hw + W * 0.045 - reach;
+      const pivotX = W;
+      const pivotY = cy;
 
-      function resize() {
-        W = window.innerWidth;
-        H = window.innerHeight;
-        DPR = Math.min(2, window.devicePixelRatio || 1);
-
-        canvas.width = Math.round(W * DPR);
-        canvas.height = Math.round(H * DPR);
-
-        step = Math.max(5, W / 205);
-        rowStep = step * 2.05;
-        cols = Math.ceil(W / step);
-        rows = Math.ceil(H / rowStep);
-        R = step * 0.46;
-
-        fACanvas.width = cols;
-        fACanvas.height = rows;
-        fBCanvas.width = cols;
-        fBCanvas.height = rows;
-
-        // Precompute seed array
-        seeds = new Float32Array(cols * rows);
-        for (let j = 0; j < rows; j++) {
-          const rowBias = hash(j * 3.1, 7.7);
-          for (let i = 0; i < cols; i++) {
-            const h = hash(i, j);
-            seeds[j * cols + i] = 0.55 * h + 0.45 * rowBias;
-          }
-        }
+      function drawHand(fctx, tile) {
+        if (!tile) return;
+        fctx.save();
+        fctx.scale(sx, sy);
+        fctx.translate(pivotX, pivotY);
+        fctx.rotate(rot);
+        fctx.scale(scale, scale);
+        fctx.translate(-pivotX, -pivotY);
+        fctx.drawImage(tile.canvas, x, cy - hh / 2, hw, hh);
+        fctx.restore();
       }
 
-      window.addEventListener('resize', resize);
-      resize();
+      drawHand(fACtx, tiles.RA);
+      drawHand(fBCtx, tiles.RB);
+    }
 
-      const LOOP = 20;
-      const LEVELS = [0, 0.26, 0.52, 0.78, 1];
+    const dataA = fACtx.getImageData(0, 0, cols, rows).data;
+    const dataB = fBCtx.getImageData(0, 0, cols, rows).data;
 
-      function render(timeSec) {
-        const t = ((timeSec % LOOP) + LOOP) % LOOP;
+    // Pose switch mix parameters
+    const mL = mixAt(t, 6.2, 14.6, 1.6);
+    const mR = mixAt(t, 2.4, 10.4, 1.6);
+    const tick = Math.floor(t * 7);
 
-        ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
-        ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = '#0d0d0d';
+    ctx.beginPath();
 
-        if (!tilesLoaded || !seeds || cols === 0 || rows === 0) {
-          return;
-        }
+    const halfCols = cols / 2;
+    const quietWidth = isPortrait ? 0.44 : 0.20;
+    const quietCenterY = isPortrait ? 0.33 : 0.385;
 
-        const isPortrait = H > W;
-        const cy = isPortrait ? H * 0.66 : H * 0.54;
-        const hw = isPortrait ? W * 0.66 : W * 0.53;
-        const hh = hw * (0.40 * 1520) / (0.47 * 2688);
+    for (let j = 0; j < rows; j++) {
+      const rowY = (j + 0.5) * rowStep;
 
-        const a = (2 * Math.PI * t) / LOOP;
+      // Row glitch check
+      let shift = 0;
+      if (hash(j, tick) > 0.965) {
+        shift = Math.round((hash(tick, j) - 0.5) * 8);
+      }
 
-        // Draw pose A into fA, pose B into fB
-        fACtx.setTransform(1, 0, 0, 1, 0, 0);
-        fACtx.fillStyle = '#ffffff';
-        fACtx.fillRect(0, 0, cols, rows);
+      const ey = (rowY / H - quietCenterY) / 0.085;
 
-        fBCtx.setTransform(1, 0, 0, 1, 0, 0);
-        fBCtx.fillStyle = '#ffffff';
-        fBCtx.fillRect(0, 0, cols, rows);
+      for (let i = 0; i < cols; i++) {
+        const idx = j * cols + i;
+        const seed = seeds[idx];
+        const m = (i < halfCols) ? mL : mR;
+        const useB = seed < m;
 
-        const sx = cols / W;
-        const sy = rows / H;
+        // Apply row shift to sampling
+        const sampleI = clamp(i - shift, 0, cols - 1);
+        const pIdx = (j * cols + sampleI) * 4;
 
-        // Draw Left Hand (Pose A: LA, Pose B: LB)
-        {
-          const ph = 0;
-          const reach = (0.035 * Math.sin(a + ph) + 0.012 * Math.sin(2 * a + 1.3 + ph)) * W;
-          const scale = 1 + 0.07 * Math.sin(a + 0.9 + ph);
-          const rot = 1 * 0.045 * Math.sin(a + 2.1 + ph);
-          const x = reach - W * 0.045;
-          const pivotX = 0;
-          const pivotY = cy;
+        const red = useB ? dataB[pIdx] : dataA[pIdx];
+        const lum = red / 255;
 
-          // Helper to draw hand into target field ctx
-          function drawHand(fctx, tile) {
-            if (!tile) return;
-            fctx.save();
-            fctx.scale(sx, sy);
-            fctx.translate(pivotX, pivotY);
-            fctx.rotate(rot);
-            fctx.scale(scale, scale);
-            fctx.translate(-pivotX, -pivotY);
-            fctx.drawImage(tile.canvas, x, cy - hh / 2, hw, hh);
-            fctx.restore();
-          }
+        let v = clamp((1 - lum - 0.16) / 0.42, 0, 1);
+        if (v <= 0) continue;
 
-          drawHand(fACtx, tiles.LA);
-          drawHand(fBCtx, tiles.LB);
-        }
-
-        // Draw Right Hand (Pose A: RA, Pose B: RB)
-        {
-          const ph = Math.PI;
-          const reach = (0.035 * Math.sin(a + ph) + 0.012 * Math.sin(2 * a + 1.3 + ph)) * W;
-          const scale = 1 + 0.07 * Math.sin(a + 0.9 + ph);
-          const rot = -1 * 0.045 * Math.sin(a + 2.1 + ph);
-          const x = W - hw + W * 0.045 - reach;
-          const pivotX = W;
-          const pivotY = cy;
-
-          function drawHand(fctx, tile) {
-            if (!tile) return;
-            fctx.save();
-            fctx.scale(sx, sy);
-            fctx.translate(pivotX, pivotY);
-            fctx.rotate(rot);
-            fctx.scale(scale, scale);
-            fctx.translate(-pivotX, -pivotY);
-            fctx.drawImage(tile.canvas, x, cy - hh / 2, hw, hh);
-            fctx.restore();
-          }
-
-          drawHand(fACtx, tiles.RA);
-          drawHand(fBCtx, tiles.RB);
-        }
-
-        const dataA = fACtx.getImageData(0, 0, cols, rows).data;
-        const dataB = fBCtx.getImageData(0, 0, cols, rows).data;
-
-        // Pose switch mix parameters
-        const mL = mixAt(t, 6.2, 14.6, 1.6);
-        const mR = mixAt(t, 2.4, 10.4, 1.6);
-        const tick = Math.floor(t * 7);
-
-        ctx.fillStyle = '#0d0d0d';
-        ctx.beginPath();
-
-        const halfCols = cols / 2;
-        const quietWidth = isPortrait ? 0.44 : 0.20;
-        const quietCenterY = isPortrait ? 0.33 : 0.385;
-
-        for (let j = 0; j < rows; j++) {
-          const rowY = (j + 0.5) * rowStep;
-
-          // Row glitch check
-          let shift = 0;
-          if (hash(j, tick) > 0.965) {
-            shift = Math.round((hash(tick, j) - 0.5) * 8);
-          }
-
-          const ey = (rowY / H - quietCenterY) / 0.085;
-
-          for (let i = 0; i < cols; i++) {
-            const idx = j * cols + i;
-            const seed = seeds[idx];
-            const m = (i < halfCols) ? mL : mR;
-            const useB = seed < m;
-
-            // Apply row shift to sampling
-            const sampleI = clamp(i - shift, 0, cols - 1);
-            const pIdx = (j * cols + sampleI) * 4;
-
-            const red = useB ? dataB[pIdx] : dataA[pIdx];
-            const lum = red / 255;
-
-            let v = clamp((1 - lum - 0.16) / 0.42, 0, 1);
-            if (v <= 0) continue;
-
-            // Front edge sparkle during glitch dissolve
-            if (m > 0.001 && m < 0.999) {
-              const diff = Math.abs(seed - m);
-              if (diff < 0.12) {
-                v *= (diff / 0.12);
-                if (hash(i + tick, j) <= 0.4) {
-                  v *= 0.3;
-                }
-              }
+        // Front edge sparkle during glitch dissolve
+        if (m > 0.001 && m < 0.999) {
+          const diff = Math.abs(seed - m);
+          if (diff < 0.12) {
+            v *= (diff / 0.12);
+            if (hash(i + tick, j) <= 0.4) {
+              v *= 0.3;
             }
-
-            // Shimmer
-            v *= 0.86 + 0.14 * Math.sin(t * 3.2 + seed * 40);
-
-            // Centre fade (fingertips never touch)
-            const cx = Math.abs((i + 0.5) / cols - 0.5);
-            v *= smooth(0.035, 0.11, cx);
-
-            // Copy quiet zone
-            const ex = cx / quietWidth;
-            const dist = Math.hypot(ex, ey);
-            v *= smooth(0.85, 1.25, dist);
-
-            if (v <= 0.01) continue;
-
-            // Quantise to levels [0, 0.26, 0.52, 0.78, 1]
-            let qLevel = 0;
-            for (let k = LEVELS.length - 1; k >= 0; k--) {
-              if (v >= LEVELS[k] - 0.13) {
-                qLevel = LEVELS[k];
-                break;
-              }
-            }
-
-            if (qLevel <= 0) continue;
-
-            let radius;
-            if (qLevel === LEVELS[1]) {
-              radius = R * 0.38; // pinpoint dots
-            } else {
-              radius = R * qLevel;
-            }
-
-            const dotX = (i + 0.5) * step;
-            ctx.moveTo(dotX + radius, rowY);
-            ctx.arc(dotX, rowY, radius, 0, Math.PI * 2);
           }
         }
 
-        ctx.fill();
-      }
+        // Shimmer
+        v *= 0.86 + 0.14 * Math.sin(t * 3.2 + seed * 40);
 
-      window.__render = render;
+        // Centre fade (fingertips never touch)
+        const cx = Math.abs((i + 0.5) / cols - 0.5);
+        v *= smooth(0.035, 0.11, cx);
 
-      const t0 = performance.now();
-      function loop(now) {
-        render((now - t0) / 1000);
-        requestAnimationFrame(loop);
+        // Copy quiet zone
+        const ex = cx / quietWidth;
+        const dist = Math.hypot(ex, ey);
+        v *= smooth(0.85, 1.25, dist);
+
+        if (v <= 0.01) continue;
+
+        // Quantise to levels [0, 0.26, 0.52, 0.78, 1]
+        let qLevel = 0;
+        for (let k = LEVELS.length - 1; k >= 0; k--) {
+          if (v >= LEVELS[k] - 0.13) {
+            qLevel = LEVELS[k];
+            break;
+          }
+        }
+
+        if (qLevel <= 0) continue;
+
+        let radius;
+        if (qLevel === LEVELS[1]) {
+          radius = R * 0.38; // pinpoint dots
+        } else {
+          radius = R * qLevel;
+        }
+
+        const dotX = (i + 0.5) * step;
+        ctx.moveTo(dotX + radius, rowY);
+        ctx.arc(dotX, rowY, radius, 0, Math.PI * 2);
       }
-      requestAnimationFrame(loop);
-    })();
+    }
+
+    ctx.fill();
+  }
+
+  window.__render = render;
+
+  const t0 = performance.now();
+  function loop(now) {
+    render((now - t0) / 1000);
+    requestAnimationFrame(loop);
+  }
+  requestAnimationFrame(loop);
+}
+
+
   </script>
 
-  <!-- APPLICATION LOGIC & STATE MANAGEMENT -->
+  <!-- TalentBridge Full Application & State Controller -->
   <script>
-    /**
-     * TalentMatcher Application Core & State Management
-     * Implements:
-     * 1. Data Model (Mock Data for quiet builders)
-     * 2. Search & Real-Time Filtering Engine
-     * 3. Native Speech-to-Text Integration (Web Speech API)
-     * 4. Connection & Invite Handshake State Machine
-     */
-    (function(global) {
-      'use strict';
-
-      // 1. Data Model: Hardcoded Mock Data strictly matching specifications
-      const INITIAL_CANDIDATES = [
-        {
-          id: 'priyam-1',
-          name: 'Priyam',
-          roleTag: 'Quiet Builder / Introvert',
-          skills: ['C++', 'DSA', 'Backend', 'Problem Solving'],
-          proofOfWork: '350+ LeetCode solved',
-          availability: 'Open to Hackathon Teams & Dev Groups',
-          connected: false
-        },
-        {
-          id: 'ankan-2',
-          name: 'Ankan',
-          roleTag: 'UI Specialist',
-          skills: ['React', 'Tailwind UI', 'TypeScript', 'Frontend'],
-          proofOfWork: '3 deployed apps',
-          availability: 'Open to Hackathon Teams & Dev Groups',
-          connected: false
-        },
-        {
-          id: 'devina-3',
-          name: 'Devina',
-          roleTag: 'Systems & Distributed Engine',
-          skills: ['Rust', 'Distributed Systems', 'Go', 'Docker'],
-          proofOfWork: 'Custom Raft consensus engine | 280+ LeetCode solved',
-          availability: 'Open to Hackathon Teams & Dev Groups',
-          connected: false
-        },
-        {
-          id: 'rohan-4',
-          name: 'Rohan',
-          roleTag: 'Algorithm & AI Specialist',
-          skills: ['Python', 'PyTorch', 'C++', 'FastAPI'],
-          proofOfWork: 'Top 3% Kaggle | 400+ LeetCode solved',
-          availability: 'Open to Hackathon Teams & Dev Groups',
-          connected: false
-        },
-        {
-          id: 'sneha-5',
-          name: 'Sneha',
-          roleTag: 'Full Stack Product Engineer',
-          skills: ['Next.js', 'React', 'Node.js', 'PostgreSQL'],
-          proofOfWork: 'Campus dev portal with 6k+ MAU',
-          availability: 'Open to Hackathon Teams & Dev Groups',
-          connected: false
-        },
-        {
-          id: 'arjun-6',
-          name: 'Arjun',
-          roleTag: 'Competitive Programmer',
-          skills: ['C++', 'Algorithms', 'DSA', 'Graph Theory'],
-          proofOfWork: 'Codeforces Candidate Master | 500+ LeetCode solved',
-          availability: 'Open to Hackathon Teams & Dev Groups',
-          connected: false
-        }
-      ];
-
-      // Talent Matcher Controller Class
-      class TalentMatchingApp {
-        constructor() {
-          this.candidates = JSON.parse(JSON.stringify(INITIAL_CANDIDATES));
-          this.searchQuery = '';
-          this.selectedCandidateId = null;
-          this.formPayload = {
-            role: 'Backend C++ Developer',
-            message: ''
-          };
-          this.isListening = false;
-          this.speechRecognition = null;
-          this.speechLang = 'en-US';
-
-          this.initDOM();
-          this.initSpeechRecognition();
-          this.renderCandidates();
-          this.bindEvents();
-        }
-
-        // DOM references cache
-        initDOM() {
-          this.dom = {
-            searchInput: document.getElementById('candidateSearchInput'),
-            searchBar: document.getElementById('heroSearchBar'),
-            clearInputBtn: document.getElementById('clearInputBtn'),
-            searchSubmitBtn: document.getElementById('searchSubmitBtn'),
-            voiceMicBtn: document.getElementById('voiceMicBtn'),
-            voiceFeedback: document.getElementById('voiceFeedback'),
-            candidatesGrid: document.getElementById('candidatesGrid'),
-            resultsStatusText: document.getElementById('resultsStatusText'),
-            emptyStateView: document.getElementById('emptyStateView'),
-            emptyQueryDisplay: document.getElementById('emptyQueryDisplay'),
-            resetSearchBtn: document.getElementById('resetSearchBtn'),
-            filterChips: document.querySelectorAll('.filter-chip'),
-            mainCtaBtn: document.getElementById('mainCtaBtn'),
-            // Modal elements
-            modalOverlay: document.getElementById('inviteModalOverlay'),
-            modalHeading: document.getElementById('modalHeading'),
-            modalCandidateBadge: document.getElementById('modalCandidateBadge'),
-            modalCandidateAvatar: document.getElementById('modalCandidateAvatar'),
-            modalCandidateName: document.getElementById('modalCandidateName'),
-            modalCandidateSub: document.getElementById('modalCandidateSub'),
-            inviteRoleSelect: document.getElementById('inviteRoleSelect'),
-            inviteMessageInput: document.getElementById('inviteMessageInput'),
-            inviteForm: document.getElementById('inviteForm'),
-            closeModalBtn: document.getElementById('closeModalBtn'),
-            cancelModalBtn: document.getElementById('cancelModalBtn'),
-            submitInviteBtn: document.getElementById('submitInviteBtn'),
-            // Toast tray
-            toastTray: document.getElementById('toastTray')
-          };
-        }
-
-        // 2. Search & Real-Time Filtering Engine
-        filterCandidates(queryString) {
-          const query = (queryString || '').trim().toLowerCase();
-          this.searchQuery = queryString;
-
-          // If query is empty, return all candidates
-          if (!query) {
-            return {
-              candidates: [...this.candidates],
-              isEmpty: false
-            };
-          }
-
-          const tokens = query.split(/\s+/).filter(Boolean);
-
-          const matched = this.candidates.filter(candidate => {
-            const nameLower = candidate.name.toLowerCase();
-            const skillsLower = candidate.skills.map(s => s.toLowerCase());
-            const proofLower = candidate.proofOfWork.toLowerCase();
-            const roleTagLower = (candidate.roleTag || '').toLowerCase();
-            const fullCorpus = `${nameLower} ${skillsLower.join(' ')} ${proofLower} ${roleTagLower}`;
-
-            // Exact or substring match across combined corpus
-            if (fullCorpus.includes(query)) {
-              return true;
-            }
-
-            // Direct check on candidate name
-            if (nameLower.includes(query)) {
-              return true;
-            }
-
-            // Direct check on individual skills
-            if (skillsLower.some(skill => skill.includes(query) || query.includes(skill))) {
-              return true;
-            }
-
-            // Direct check on proofOfWork text
-            if (proofLower.includes(query)) {
-              return true;
-            }
-
-            // Token match: check if each word in query matches any of candidate's details
-            const allTokensMatched = tokens.every(token => fullCorpus.includes(token));
-            if (allTokensMatched) {
-              return true;
-            }
-
-            // Or if any token matches skills / name
-            const anyTokenSkillMatch = tokens.some(token => 
-              nameLower.includes(token) || 
-              skillsLower.some(s => s.includes(token)) ||
-              proofLower.includes(token)
-            );
-            return anyTokenSkillMatch;
-          });
-
-          return {
-            candidates: matched,
-            isEmpty: matched.length === 0
-          };
-        }
-
-        // 3. Native Speech-to-Text Integration
-        initSpeechRecognition() {
-          const SpeechRecognitionConstructor = window.SpeechRecognition || window.webkitSpeechRecognition;
-
-          if (!SpeechRecognitionConstructor) {
-            console.warn('Web Speech API is not supported in this browser.');
-            return;
-          }
-
-          try {
-            this.speechRecognition = new SpeechRecognitionConstructor();
-            this.speechRecognition.continuous = false;
-            this.speechRecognition.interimResults = true;
-            this.speechRecognition.lang = this.speechLang;
-
-            this.speechRecognition.onstart = () => {
-              this.isListening = true;
-              this.updateVoiceUI(true, 'Listening... speak skill or role');
-            };
-
-            this.speechRecognition.onresult = (event) => {
-              let transcript = '';
-              for (let i = event.resultIndex; i < event.results.length; i++) {
-                transcript += event.results[i][0].transcript;
-              }
-
-              const cleanTranscript = transcript.trim();
-              if (cleanTranscript) {
-                // Update search query state immediately
-                this.setSearchQuery(cleanTranscript);
-                // Highlight speech transcript in feedback
-                this.updateVoiceUI(true, `Heard: "${cleanTranscript}"`);
-              }
-            };
-
-            this.speechRecognition.onerror = (event) => {
-              console.warn('Speech recognition event error:', event.error);
-
-              // Fallback support for en-IN if language error or on regional preferences
-              if (event.error === 'language-not-supported' && this.speechLang !== 'en-IN') {
-                console.log('Falling back to en-IN recognition...');
-                this.speechLang = 'en-IN';
-                this.speechRecognition.lang = 'en-IN';
-                try {
-                  this.speechRecognition.start();
-                  return;
-                } catch (e) {}
-              }
-
-              if (event.error === 'not-allowed') {
-                this.showToast(
-                  'Microphone Access Denied',
-                  'Please enable microphone permissions in your browser to use voice search.',
-                  'error'
-                );
-              } else if (event.error !== 'no-speech') {
-                this.showToast(
-                  'Speech Input Notice',
-                  `Speech recognition returned: ${event.error}`,
-                  'error'
-                );
-              }
-
-              this.stopListening();
-            };
-
-            this.speechRecognition.onend = () => {
-              this.stopListening();
-            };
-          } catch (err) {
-            console.error('Failed to initialize SpeechRecognition:', err);
-          }
-        }
-
-        startListening() {
-          const SpeechRecognitionConstructor = window.SpeechRecognition || window.webkitSpeechRecognition;
-          if (!SpeechRecognitionConstructor) {
-            this.showToast(
-              'Voice Search Unsupported',
-              'Native Web Speech API is not supported by your current browser. Please test in Google Chrome or Microsoft Edge.',
-              'error'
-            );
-            return;
-          }
-
-          if (this.isListening) {
-            this.stopListening();
-            return;
-          }
-
-          try {
-            if (!this.speechRecognition) {
-              this.initSpeechRecognition();
-            }
-            this.speechRecognition.start();
-          } catch (error) {
-            console.warn('Error starting SpeechRecognition:', error);
-            // If already started or interrupted, reset instance
-            this.stopListening();
-          }
-        }
-
-        stopListening() {
-          this.isListening = false;
-          if (this.speechRecognition) {
-            try {
-              this.speechRecognition.stop();
-            } catch (err) {}
-          }
-          this.updateVoiceUI(false, '');
-        }
-
-        updateVoiceUI(active, text) {
-          if (active) {
-            this.dom.voiceMicBtn.classList.add('listening');
-            this.dom.searchBar.classList.add('is-listening');
-            this.dom.voiceFeedback.textContent = text || 'Listening...';
-            this.dom.voiceFeedback.classList.add('active');
-          } else {
-            this.dom.voiceMicBtn.classList.remove('listening');
-            this.dom.searchBar.classList.remove('is-listening');
-            this.dom.voiceFeedback.textContent = '';
-            this.dom.voiceFeedback.classList.remove('active');
-          }
-        }
-
-        // 4. Connection & Invite Handshake State Machine
-        openInviteModal(candidateId) {
-          const candidate = this.candidates.find(c => c.id === candidateId);
-          if (!candidate) return;
-
-          this.selectedCandidateId = candidateId;
-          // Form payload tracks selected role (default: "Backend C++ Developer") and optional message
-          this.formPayload = {
-            role: 'Backend C++ Developer',
-            message: ''
-          };
-
-          // Update modal DOM
-          this.dom.modalHeading.textContent = `Send Invitation to ${candidate.name}`;
-          this.dom.modalCandidateAvatar.textContent = candidate.name.charAt(0);
-          this.dom.modalCandidateName.textContent = candidate.name;
-          this.dom.modalCandidateSub.textContent = `${candidate.skills.slice(0, 3).join(', ')} • ${candidate.proofOfWork}`;
-          
-          this.dom.inviteRoleSelect.value = 'Backend C++ Developer';
-          this.dom.inviteMessageInput.value = '';
-
-          this.dom.modalOverlay.classList.add('active');
-          document.body.style.overflow = 'hidden';
-
-          setTimeout(() => {
-            this.dom.inviteRoleSelect.focus();
-          }, 100);
-        }
-
-        closeInviteModal() {
-          this.selectedCandidateId = null;
-          this.dom.modalOverlay.classList.remove('active');
-          document.body.style.overflow = '';
-        }
-
-        sendInvite(candidateId, role, message = '') {
-          const targetId = candidateId || this.selectedCandidateId;
-          const candidate = this.candidates.find(c => c.id === targetId);
-
-          if (!candidate) {
-            console.error('Candidate not found for invitation:', targetId);
-            return null;
-          }
-
-          const assignedRole = role || this.formPayload.role || 'Backend C++ Developer';
-
-          // Simulate sending handshake request and mark candidate connected status as true
-          candidate.connected = true;
-
-          // Close modal
-          this.closeInviteModal();
-
-          // Re-render UI to update button to "Invited ✓" state
-          this.renderCandidates();
-
-          // Emit success status toast strictly matching requirements
-          this.showToast(
-            `Invitation sent to ${candidate.name}!`,
-            `Role: ${assignedRole}. Successfully linked to developer group.`,
-            'success'
-          );
-
-          return {
-            status: 'success',
-            candidateId: targetId,
-            candidateName: candidate.name,
-            role: assignedRole,
-            message,
-            timestamp: new Date().toISOString()
-          };
-        }
-
-        // Search Query state updater & live filtering
-        setSearchQuery(queryString) {
-          this.searchQuery = queryString;
-          this.dom.searchInput.value = queryString;
-
-          if (queryString) {
-            this.dom.clearInputBtn.style.display = 'inline-flex';
-          } else {
-            this.dom.clearInputBtn.style.display = 'none';
-          }
-
-          // Trigger the filter engine live
-          this.renderCandidates();
-        }
-
-        // Render candidate cards into grid
-        renderCandidates() {
-          const { candidates: filtered, isEmpty } = this.filterCandidates(this.searchQuery);
-          const currentQuery = (this.searchQuery || '').trim().toLowerCase();
-
-          // Update toolbar count and chips
-          if (currentQuery) {
-            this.dom.resultsStatusText.innerHTML = `Found <strong>${filtered.length}</strong> candidate${filtered.length === 1 ? '' : 's'} matching "<strong>${escapeHTML(this.searchQuery)}</strong>"`;
-          } else {
-            this.dom.resultsStatusText.innerHTML = `Showing all <strong>${this.candidates.length}</strong> quiet builders`;
-          }
-
-          // Update active chip state
-          this.dom.filterChips.forEach(chip => {
-            const filterVal = chip.getAttribute('data-filter') || '';
-            if (filterVal.toLowerCase() === currentQuery) {
-              chip.classList.add('active');
-            } else if (!currentQuery && filterVal === '') {
-              chip.classList.add('active');
-            } else {
-              chip.classList.remove('active');
-            }
-          });
-
-          // Handle Empty State
-          if (isEmpty) {
-            this.dom.candidatesGrid.style.display = 'none';
-            this.dom.emptyStateView.style.display = 'block';
-            this.dom.emptyQueryDisplay.textContent = this.searchQuery;
-            return;
-          }
-
-          this.dom.candidatesGrid.style.display = 'grid';
-          this.dom.emptyStateView.style.display = 'none';
-
-          // Render Cards strictly matching requested details
-          this.dom.candidatesGrid.innerHTML = filtered.map(c => {
-            const isMatch = (term) => currentQuery && term.toLowerCase().includes(currentQuery);
-
-            const skillsHTML = c.skills.map(skill => {
-              const highlighted = isMatch(skill) ? 'match-highlight' : '';
-              return `<span class="skill-pill ${highlighted}">${escapeHTML(skill)}</span>`;
-            }).join('');
-
-            const connectedBtnHTML = c.connected
-              ? `<button type="button" class="btn-invite-team is-connected" disabled>
-                   <svg viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
-                   <span>Invited ✓</span>
-                 </button>`
-              : `<button type="button" class="btn-invite-team" onclick="window.talentMatcher.openInviteModal('${c.id}')">
-                   <span>Invite to Team</span>
-                 </button>`;
-
-            return `
-              <div class="candidate-card" data-id="${c.id}">
-                <div class="card-top">
-                  <div class="candidate-profile">
-                    <div class="candidate-avatar">${escapeHTML(c.name.charAt(0))}</div>
-                    <div>
-                      <h3 class="candidate-name">${escapeHTML(c.name)}</h3>
-                      <span class="candidate-role-tag">${escapeHTML(c.roleTag)}</span>
-                    </div>
-                  </div>
-                  <span class="availability-pill">
-                    <span class="dot-live"></span>
-                    <span>Available</span>
-                  </span>
-                </div>
-
-                <div class="card-middle">
-                  <div class="skills-pills">
-                    ${skillsHTML}
-                  </div>
-
-                  <div class="pow-box">
-                    <svg class="pow-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                      <polyline points="16 18 22 12 16 6"/>
-                      <polyline points="8 6 2 12 8 18"/>
-                    </svg>
-                    <span>${escapeHTML(c.proofOfWork)}</span>
-                  </div>
-
-                  <div class="availability-text">
-                    ${escapeHTML(c.availability)}
-                  </div>
-                </div>
-
-                <div class="card-bottom">
-                  ${connectedBtnHTML}
-                </div>
-              </div>
-            `;
-          }).join('');
-        }
-
-        // Success / Notification Toast
-        showToast(title, message, type = 'success') {
-          const toast = document.createElement('div');
-          toast.className = `toast-item toast-${type}`;
-
-          const iconSVG = type === 'success'
-            ? `<svg viewBox="0 0 20 20" fill="currentColor">
-                 <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
-               </svg>`
-            : `<svg viewBox="0 0 20 20" fill="currentColor">
-                 <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
-               </svg>`;
-
-          toast.innerHTML = `
-            <div class="toast-icon">${iconSVG}</div>
-            <div class="toast-text">
-              <div class="toast-title">${escapeHTML(title)}</div>
-              <div class="toast-detail">${escapeHTML(message)}</div>
-            </div>
-            <button type="button" class="toast-close-x" aria-label="Close notification">✕</button>
-          `;
-
-          const closeBtn = toast.querySelector('.toast-close-x');
-          closeBtn.addEventListener('click', () => {
-            toast.style.opacity = '0';
-            toast.style.transform = 'translateY(-10px)';
-            setTimeout(() => toast.remove(), 250);
-          });
-
-          this.dom.toastTray.appendChild(toast);
-
-          // Auto-remove after 4.5 seconds
-          setTimeout(() => {
-            if (toast.parentElement) {
-              toast.style.opacity = '0';
-              toast.style.transform = 'translateY(-10px)';
-              setTimeout(() => toast.remove(), 250);
-            }
-          }, 4500);
-        }
-
-        // Event bindings
-        bindEvents() {
-          // Real-time typing in search bar
-          this.dom.searchInput.addEventListener('input', (e) => {
-            this.setSearchQuery(e.target.value);
-          });
-
-          // Pressing Enter in search bar scrolls smoothly to discovery
-          this.dom.searchInput.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') {
-              e.preventDefault();
-              document.getElementById('discovery').scrollIntoView({ behavior: 'smooth' });
-            }
-          });
-
-          // Search button click
-          this.dom.searchSubmitBtn.addEventListener('click', () => {
-            document.getElementById('discovery').scrollIntoView({ behavior: 'smooth' });
-          });
-
-          // Clear search input button
-          this.dom.clearInputBtn.addEventListener('click', () => {
-            this.setSearchQuery('');
-            this.dom.searchInput.focus();
-          });
-
-          // Reset search in empty state
-          this.dom.resetSearchBtn.addEventListener('click', () => {
-            this.setSearchQuery('');
-            this.dom.searchInput.focus();
-          });
-
-          // Voice mic button
-          this.dom.voiceMicBtn.addEventListener('click', () => {
-            if (this.isListening) {
-              this.stopListening();
-            } else {
-              this.startListening();
-            }
-          });
-
-          // Quick Filter chips
-          this.dom.filterChips.forEach(chip => {
-            chip.addEventListener('click', () => {
-              const filter = chip.getAttribute('data-filter') || '';
-              this.setSearchQuery(filter);
-              document.getElementById('discovery').scrollIntoView({ behavior: 'smooth' });
-            });
-          });
-
-          // CTA button smooth scroll
-          this.dom.mainCtaBtn.addEventListener('click', (e) => {
-            e.preventDefault();
-            document.getElementById('discovery').scrollIntoView({ behavior: 'smooth' });
-          });
-
-          // Modal Close handlers
-          this.dom.closeModalBtn.addEventListener('click', () => this.closeInviteModal());
-          this.dom.cancelModalBtn.addEventListener('click', () => this.closeInviteModal());
-
-          this.dom.modalOverlay.addEventListener('click', (e) => {
-            if (e.target === this.dom.modalOverlay) {
-              this.closeInviteModal();
-            }
-          });
-
-          document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape' && this.dom.modalOverlay.classList.contains('active')) {
-              this.closeInviteModal();
-            }
-          });
-
-          // Modal Form Submit
-          this.dom.inviteForm.addEventListener('submit', (e) => {
-            e.preventDefault();
-            const role = this.dom.inviteRoleSelect.value;
-            const msg = this.dom.inviteMessageInput.value;
-            this.sendInvite(this.selectedCandidateId, role, msg);
-          });
-
-          // Modal role change
-          this.dom.inviteRoleSelect.addEventListener('change', (e) => {
-            this.formPayload.role = e.target.value;
-          });
-        }
+import { initDotMatrixCanvas } from './canvas.js';
+
+/**
+ * TalentBridge Client-Side Controller & State Management
+ * Extends the system with:
+ * 1. "Create Your Profile" modal & live candidate persistence
+ * 2. Resume file handling with preview
+ * 3. Group & Team Matchmaking Board (Hyperfusion 2K26, Web3 Builders, AI Research Pod)
+ * 4. Shared connection & application state synced with localStorage & Express backend
+ * 5. Real-time debounced search & Web Speech API integration
+ */
+
+const API_BASE = 'http://localhost:5000/api';
+const STORAGE_KEYS = {
+  CANDIDATES: 'talentbridge_candidates',
+  GROUPS: 'talentbridge_groups',
+  CONNECTIONS: 'talentbridge_connections',
+  APPLICATIONS: 'talentbridge_applications',
+  USER_PROFILE: 'talentbridge_user_profile'
+};
+
+// Initial Mock Candidates (used as initial seed if localStorage or API is empty)
+const INITIAL_CANDIDATES = [
+  {
+    id: 'priyam-1',
+    name: 'Priyam',
+    roleTag: 'Quiet Builder / Introvert',
+    skills: ['C++', 'DSA', 'Backend', 'Problem Solving'],
+    proofOfWork: '350+ LeetCode solved',
+    availability: 'Open to Hackathon Teams & Dev Groups',
+    resumeFileName: 'Priyam_CPP_Resume.pdf',
+    github: 'https://github.com',
+    portfolio: 'https://leetcode.com',
+    connected: false
+  },
+  {
+    id: 'ankan-2',
+    name: 'Ankan',
+    roleTag: 'UI Specialist',
+    skills: ['React', 'Tailwind UI', 'TypeScript', 'Frontend'],
+    proofOfWork: '3 deployed apps',
+    availability: 'Open to Hackathon Teams & Dev Groups',
+    resumeFileName: 'Ankan_Frontend_Resume.pdf',
+    github: 'https://github.com',
+    portfolio: 'https://ankan.dev',
+    connected: false
+  },
+  {
+    id: 'devina-3',
+    name: 'Devina',
+    roleTag: 'Systems & Distributed Engine',
+    skills: ['Rust', 'Distributed Systems', 'Go', 'Docker'],
+    proofOfWork: 'Custom Raft consensus engine | 280+ LeetCode solved',
+    availability: 'Open to Hackathon Teams & Dev Groups',
+    resumeFileName: 'Devina_Systems_CV.pdf',
+    github: 'https://github.com',
+    portfolio: '',
+    connected: false
+  },
+  {
+    id: 'rohan-4',
+    name: 'Rohan',
+    roleTag: 'Algorithm & AI Specialist',
+    skills: ['Python', 'PyTorch', 'C++', 'FastAPI'],
+    proofOfWork: 'Top 3% Kaggle | 400+ LeetCode solved',
+    availability: 'Open to Hackathon Teams & Dev Groups',
+    resumeFileName: 'Rohan_ML_Researcher.pdf',
+    github: 'https://github.com',
+    portfolio: 'https://kaggle.com',
+    connected: false
+  },
+  {
+    id: 'sneha-5',
+    name: 'Sneha',
+    roleTag: 'Full Stack Product Engineer',
+    skills: ['Next.js', 'React', 'Node.js', 'PostgreSQL'],
+    proofOfWork: 'Campus dev portal with 6k+ MAU',
+    availability: 'Open to Hackathon Teams & Dev Groups',
+    resumeFileName: 'Sneha_Fullstack.pdf',
+    github: 'https://github.com',
+    portfolio: '',
+    connected: false
+  },
+  {
+    id: 'arjun-6',
+    name: 'Arjun',
+    roleTag: 'Competitive Programmer',
+    skills: ['C++', 'Algorithms', 'DSA', 'Graph Theory'],
+    proofOfWork: 'Codeforces Candidate Master | 500+ LeetCode solved',
+    availability: 'Open to Hackathon Teams & Dev Groups',
+    resumeFileName: '',
+    github: 'https://github.com',
+    portfolio: 'https://codeforces.com',
+    connected: false
+  }
+];
+
+// Initial Developer Groups & Hackathon Teams
+const INITIAL_GROUPS = [
+  {
+    id: 'team-alpha',
+    name: 'Team Alpha (Hyperfusion 2K26)',
+    seeking: '1 C++ / Systems Builder',
+    project: 'Low-latency streaming platform',
+    currentMembers: 3,
+    maxMembers: 4,
+    tags: ['C++', 'Low-Latency', 'Systems', 'Distributed Systems'],
+    applied: false
+  },
+  {
+    id: 'web3-builders',
+    name: 'Web3 Builders',
+    seeking: '1 Frontend UI dev (React/Tailwind)',
+    project: 'Decentralized identity portal',
+    currentMembers: 2,
+    maxMembers: 4,
+    tags: ['React', 'Tailwind UI', 'TypeScript', 'Web3'],
+    applied: false
+  },
+  {
+    id: 'ai-research-pod',
+    name: 'AI Research Pod',
+    seeking: '1 Python / ML Engineer',
+    project: 'Computer Vision sign language detector',
+    currentMembers: 3,
+    maxMembers: 4,
+    tags: ['Python', 'PyTorch', 'Computer Vision', 'FastAPI'],
+    applied: false
+  }
+];
+
+class TalentBridgeApp {
+  constructor() {
+    this.candidates = [];
+    this.groups = [];
+    this.searchQuery = '';
+    this.selectedCandidateId = null;
+    this.selectedResumeFile = null;
+    this.formPayload = {
+      role: 'Backend C++ Developer',
+      message: ''
+    };
+    this.isListening = false;
+    this.speechRecognition = null;
+    this.speechLang = 'en-US';
+    this.searchDebounceTimer = null;
+
+    this.initDOM();
+    this.initSpeechRecognition();
+    this.loadPersistedState();
+    this.bindEvents();
+    this.syncWithBackend();
+  }
+
+  initDOM() {
+    this.dom = {
+      // Search elements
+      searchInput: document.getElementById('candidateSearchInput'),
+      searchBar: document.getElementById('heroSearchBar'),
+      clearInputBtn: document.getElementById('clearInputBtn'),
+      searchSubmitBtn: document.getElementById('searchSubmitBtn'),
+      voiceMicBtn: document.getElementById('voiceMicBtn'),
+      voiceFeedback: document.getElementById('voiceFeedback'),
+      candidatesGrid: document.getElementById('candidatesGrid'),
+      resultsStatusText: document.getElementById('resultsStatusText'),
+      emptyStateView: document.getElementById('emptyStateView'),
+      emptyQueryDisplay: document.getElementById('emptyQueryDisplay'),
+      resetSearchBtn: document.getElementById('resetSearchBtn'),
+      filterChips: document.querySelectorAll('.filter-chip'),
+      mainCtaBtn: document.getElementById('mainCtaBtn'),
+      
+      // Groups elements
+      groupsGrid: document.getElementById('groupsGrid'),
+
+      // Invite Modal
+      inviteModalOverlay: document.getElementById('inviteModalOverlay'),
+      modalHeading: document.getElementById('modalHeading'),
+      modalCandidateBadge: document.getElementById('modalCandidateBadge'),
+      modalCandidateAvatar: document.getElementById('modalCandidateAvatar'),
+      modalCandidateName: document.getElementById('modalCandidateName'),
+      modalCandidateSub: document.getElementById('modalCandidateSub'),
+      inviteRoleSelect: document.getElementById('inviteRoleSelect'),
+      inviteMessageInput: document.getElementById('inviteMessageInput'),
+      inviteForm: document.getElementById('inviteForm'),
+      closeInviteModalBtn: document.getElementById('closeModalBtn'),
+      cancelInviteModalBtn: document.getElementById('cancelModalBtn'),
+      submitInviteBtn: document.getElementById('submitInviteBtn'),
+
+      // Create Profile Modal
+      createProfileModalOverlay: document.getElementById('createProfileModalOverlay'),
+      openCreateProfileNavBtn: document.getElementById('openCreateProfileNavBtn'),
+      openCreateProfileHeroBtn: document.getElementById('openCreateProfileHeroBtn'),
+      closeCreateProfileModalBtn: document.getElementById('closeCreateProfileModalBtn'),
+      cancelCreateProfileBtn: document.getElementById('cancelCreateProfileBtn'),
+      createProfileForm: document.getElementById('createProfileForm'),
+      profNameInput: document.getElementById('profNameInput'),
+      profRoleTagInput: document.getElementById('profRoleTagInput'),
+      profSkillsInput: document.getElementById('profSkillsInput'),
+      profProofInput: document.getElementById('profProofInput'),
+      profAvailabilitySelect: document.getElementById('profAvailabilitySelect'),
+      profGithubInput: document.getElementById('profGithubInput'),
+      profPortfolioInput: document.getElementById('profPortfolioInput'),
+      resumeFileInput: document.getElementById('resumeFileInput'),
+      resumeDropzone: document.getElementById('resumeDropzone'),
+      resumePreviewWrap: document.getElementById('resumePreviewWrap'),
+      resumeFileNameSpan: document.getElementById('resumeFileNameSpan'),
+      removeResumeBtn: document.getElementById('removeResumeBtn'),
+
+      // Toast Tray
+      toastTray: document.getElementById('toastTray')
+    };
+  }
+
+  /**
+   * Load state from localStorage on startup (instant load)
+   */
+  loadPersistedState() {
+    try {
+      const savedCandidates = localStorage.getItem(STORAGE_KEYS.CANDIDATES);
+      if (savedCandidates) {
+        this.candidates = JSON.parse(savedCandidates);
+      } else {
+        this.candidates = JSON.parse(JSON.stringify(INITIAL_CANDIDATES));
       }
 
-      function escapeHTML(str) {
-        if (!str) return '';
-        return String(str)
-          .replace(/&/g, '&amp;')
-          .replace(/</g, '&lt;')
-          .replace(/>/g, '&gt;')
-          .replace(/"/g, '&quot;')
-          .replace(/'/g, '&#039;');
+      const savedGroups = localStorage.getItem(STORAGE_KEYS.GROUPS);
+      if (savedGroups) {
+        this.groups = JSON.parse(savedGroups);
+      } else {
+        this.groups = JSON.parse(JSON.stringify(INITIAL_GROUPS));
       }
 
-      // Initialize on DOMContentLoaded and expose cleanly on window for inspection & testing
-      document.addEventListener('DOMContentLoaded', () => {
-        global.talentMatcher = new TalentMatchingApp();
-        global.TalentApp = global.talentMatcher;
+      // Re-apply connection overrides from localStorage
+      const savedConnections = JSON.parse(localStorage.getItem(STORAGE_KEYS.CONNECTIONS) || '{}');
+      this.candidates.forEach(c => {
+        if (savedConnections[c.id]) {
+          c.connected = true;
+        }
       });
 
-    })(window);
+      // Re-apply group applications from localStorage
+      const savedApps = JSON.parse(localStorage.getItem(STORAGE_KEYS.APPLICATIONS) || '{}');
+      this.groups.forEach(g => {
+        if (savedApps[g.id]) {
+          g.applied = true;
+        }
+      });
+    } catch (e) {
+      console.warn('Error reading from localStorage:', e);
+      this.candidates = JSON.parse(JSON.stringify(INITIAL_CANDIDATES));
+      this.groups = JSON.parse(JSON.stringify(INITIAL_GROUPS));
+    }
+
+    this.renderCandidates();
+    this.renderGroups();
+  }
+
+  /**
+   * Save current state to localStorage
+   */
+  saveStateToStorage() {
+    try {
+      localStorage.setItem(STORAGE_KEYS.CANDIDATES, JSON.stringify(this.candidates));
+      localStorage.setItem(STORAGE_KEYS.GROUPS, JSON.stringify(this.groups));
+
+      const connections = {};
+      this.candidates.forEach(c => {
+        if (c.connected) connections[c.id] = true;
+      });
+      localStorage.setItem(STORAGE_KEYS.CONNECTIONS, JSON.stringify(connections));
+
+      const applications = {};
+      this.groups.forEach(g => {
+        if (g.applied) applications[g.id] = true;
+      });
+      localStorage.setItem(STORAGE_KEYS.APPLICATIONS, JSON.stringify(applications));
+    } catch (e) {
+      console.warn('Error saving state to localStorage:', e);
+    }
+  }
+
+  /**
+   * Synchronize candidates and groups with the Express backend
+   */
+  async syncWithBackend() {
+    try {
+      // 1. Fetch Candidates from backend
+      const candRes = await fetch(`${API_BASE}/candidates`);
+      if (candRes.ok) {
+        const backendCandidates = await candRes.json();
+        if (Array.isArray(backendCandidates) && backendCandidates.length > 0) {
+          // Merge with local newly created candidates
+          const localOnly = this.candidates.filter(
+            lc => !backendCandidates.some(bc => bc.id === lc.id)
+          );
+          this.candidates = [...localOnly, ...backendCandidates];
+
+          // Preserve connected states
+          const savedConnections = JSON.parse(localStorage.getItem(STORAGE_KEYS.CONNECTIONS) || '{}');
+          this.candidates.forEach(c => {
+            if (savedConnections[c.id]) c.connected = true;
+          });
+
+          this.saveStateToStorage();
+          this.renderCandidates();
+        }
+      }
+
+      // 2. Fetch Groups from backend
+      const groupRes = await fetch(`${API_BASE}/groups`);
+      if (groupRes.ok) {
+        const backendGroups = await groupRes.json();
+        if (Array.isArray(backendGroups) && backendGroups.length > 0) {
+          this.groups = backendGroups;
+          const savedApps = JSON.parse(localStorage.getItem(STORAGE_KEYS.APPLICATIONS) || '{}');
+          this.groups.forEach(g => {
+            if (savedApps[g.id]) g.applied = true;
+          });
+          this.saveStateToStorage();
+          this.renderGroups();
+        }
+      }
+    } catch (err) {
+      console.info('Backend API unavailable; running in offline/localStorage mode.');
+    }
+  }
+
+  /**
+   * Search and filter candidates
+   */
+  filterCandidates(query = '') {
+    const q = (query || '').trim().toLowerCase();
+    if (!q) return this.candidates;
+
+    const tokens = q.split(/\s+/).filter(Boolean);
+
+    return this.candidates.filter(c => {
+      const name = (c.name || '').toLowerCase();
+      const skills = (c.skills || []).map(s => String(s).toLowerCase());
+      const pow = (c.proofOfWork || '').toLowerCase();
+      const role = (c.roleTag || '').toLowerCase();
+      const corpus = `${name} ${skills.join(' ')} ${pow} ${role}`;
+
+      if (corpus.includes(q)) return true;
+      if (name.includes(q)) return true;
+      if (skills.some(s => s.includes(q) || q.includes(s))) return true;
+      if (pow.includes(q)) return true;
+      if (tokens.every(t => corpus.includes(t))) return true;
+      return tokens.some(t => name.includes(t) || skills.some(s => s.includes(t)) || pow.includes(t));
+    });
+  }
+
+  /**
+   * Debounced search handler for live keystrokes & speech input
+   */
+  handleSearchInput(value, immediate = false) {
+    this.searchQuery = value;
+    this.dom.searchInput.value = value;
+
+    if (value) {
+      this.dom.clearInputBtn.style.display = 'inline-flex';
+    } else {
+      this.dom.clearInputBtn.style.display = 'none';
+    }
+
+    if (this.searchDebounceTimer) {
+      clearTimeout(this.searchDebounceTimer);
+    }
+
+    if (immediate) {
+      this.renderCandidates();
+    } else {
+      this.searchDebounceTimer = setTimeout(() => {
+        this.renderCandidates();
+      }, 200);
+    }
+  }
+
+  /**
+   * Native Web Speech API Integration
+   */
+  initSpeechRecognition() {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) return;
+
+    try {
+      this.speechRecognition = new SpeechRecognition();
+      this.speechRecognition.continuous = false;
+      this.speechRecognition.interimResults = true;
+      this.speechRecognition.lang = this.speechLang;
+
+      this.speechRecognition.onstart = () => {
+        this.isListening = true;
+        this.updateVoiceUI(true, 'Listening... speak skill or role');
+      };
+
+      this.speechRecognition.onresult = (event) => {
+        let transcript = '';
+        for (let i = event.resultIndex; i < event.results.length; i++) {
+          transcript += event.results[i][0].transcript;
+        }
+
+        const cleanTranscript = transcript.trim();
+        if (cleanTranscript) {
+          this.handleSearchInput(cleanTranscript, true);
+          this.updateVoiceUI(true, `Heard: "${cleanTranscript}"`);
+        }
+      };
+
+      this.speechRecognition.onerror = (event) => {
+        if (event.error === 'language-not-supported' && this.speechLang !== 'en-IN') {
+          this.speechLang = 'en-IN';
+          this.speechRecognition.lang = 'en-IN';
+          try {
+            this.speechRecognition.start();
+            return;
+          } catch (e) {}
+        }
+
+        if (event.error === 'not-allowed') {
+          this.showToast('Microphone Denied', 'Please allow microphone access to search by voice.', 'error');
+        } else if (event.error !== 'no-speech') {
+          this.showToast('Voice Search Error', `Error: ${event.error}`, 'error');
+        }
+
+        this.stopListening();
+      };
+
+      this.speechRecognition.onend = () => {
+        this.stopListening();
+      };
+    } catch (err) {
+      console.warn('SpeechRecognition initialization error:', err);
+    }
+  }
+
+  startListening() {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      this.showToast('Speech Recognition Unsupported', 'Web Speech API is not supported in this browser.', 'error');
+      return;
+    }
+
+    if (this.isListening) {
+      this.stopListening();
+      return;
+    }
+
+    try {
+      if (!this.speechRecognition) {
+        this.initSpeechRecognition();
+      }
+      this.speechRecognition.start();
+    } catch (e) {
+      this.stopListening();
+    }
+  }
+
+  stopListening() {
+    this.isListening = false;
+    if (this.speechRecognition) {
+      try {
+        this.speechRecognition.stop();
+      } catch (e) {}
+    }
+    this.updateVoiceUI(false, '');
+  }
+
+  updateVoiceUI(active, text) {
+    if (active) {
+      this.dom.voiceMicBtn.classList.add('listening');
+      this.dom.searchBar.classList.add('is-listening');
+      this.dom.voiceFeedback.textContent = text || 'Listening...';
+      this.dom.voiceFeedback.classList.add('active');
+    } else {
+      this.dom.voiceMicBtn.classList.remove('listening');
+      this.dom.searchBar.classList.remove('is-listening');
+      this.dom.voiceFeedback.textContent = '';
+      this.dom.voiceFeedback.classList.remove('active');
+    }
+  }
+
+  /**
+   * 1. CREATE PROFILE MODAL & CANDIDATE PERSISTENCE
+   */
+  openCreateProfileModal() {
+    this.dom.createProfileModalOverlay.classList.add('active');
+    document.body.style.overflow = 'hidden';
+    setTimeout(() => {
+      this.dom.profNameInput.focus();
+    }, 100);
+  }
+
+  closeCreateProfileModal() {
+    this.dom.createProfileModalOverlay.classList.remove('active');
+    document.body.style.overflow = '';
+  }
+
+  handleResumeFileSelection(file) {
+    if (!file) return;
+
+    const validExtensions = ['.pdf', '.docx', '.doc'];
+    const fileName = file.name;
+    const ext = fileName.substring(fileName.lastIndexOf('.')).toLowerCase();
+
+    if (!validExtensions.includes(ext)) {
+      this.showToast('Invalid File Type', 'Please upload a .pdf or .docx resume file.', 'error');
+      return;
+    }
+
+    this.selectedResumeFile = file;
+    this.dom.resumeFileNameSpan.textContent = `${fileName} (${(file.size / 1024).toFixed(1)} KB)`;
+    this.dom.resumePreviewWrap.style.display = 'inline-flex';
+  }
+
+  clearResumeFile() {
+    this.selectedResumeFile = null;
+    this.dom.resumeFileInput.value = '';
+    this.dom.resumeFileNameSpan.textContent = '';
+    this.dom.resumePreviewWrap.style.display = 'none';
+  }
+
+  async handleCreateProfileSubmit(e) {
+    e.preventDefault();
+
+    const name = this.dom.profNameInput.value.trim();
+    if (!name) {
+      this.showToast('Name Required', 'Please enter your full name or developer handle.', 'error');
+      this.dom.profNameInput.focus();
+      return;
+    }
+
+    const roleTag = this.dom.profRoleTagInput.value.trim() || 'Quiet Builder / Engineer';
+    const skillsRaw = this.dom.profSkillsInput.value.trim();
+    const skills = skillsRaw
+      ? skillsRaw.split(',').map(s => s.trim()).filter(Boolean)
+      : ['Problem Solving', 'Software Engineering'];
+
+    const proofOfWork = this.dom.profProofInput.value.trim() || 'Verified Autonomous Project Builder';
+    const availability = this.dom.profAvailabilitySelect.value || 'Open to Hackathon Teams & Dev Groups';
+    const github = this.dom.profGithubInput.value.trim();
+    const portfolio = this.dom.profPortfolioInput.value.trim();
+
+    const resumeFileName = this.selectedResumeFile ? this.selectedResumeFile.name : '';
+
+    const newCandidate = {
+      id: `cand-${Date.now()}`,
+      name,
+      roleTag,
+      skills,
+      proofOfWork,
+      availability,
+      resumeFileName,
+      github,
+      portfolio,
+      connected: false,
+      createdAt: new Date().toISOString()
+    };
+
+    // 1. Add to beginning of active candidate store
+    this.candidates.unshift(newCandidate);
+    this.saveStateToStorage();
+
+    // 2. Also persist to Express backend if online
+    try {
+      fetch(`${API_BASE}/candidates`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newCandidate)
+      }).catch(err => console.info('Backend candidate sync offline:', err));
+    } catch (e) {}
+
+    // 3. Reset form & close modal
+    this.dom.createProfileForm.reset();
+    this.clearResumeFile();
+    this.closeCreateProfileModal();
+
+    // 4. Update the candidate grid and scroll to discovery
+    this.renderCandidates();
+    document.getElementById('discovery').scrollIntoView({ behavior: 'smooth' });
+
+    // 5. Emit confirmation toast
+    this.showToast(
+      'Profile published successfully!',
+      'Your proof-of-work is now discoverable by recruiters and teams.',
+      'success'
+    );
+  }
+
+  /**
+   * 2. GROUP & TEAM MATCHMAKING BOARD
+   */
+  async joinGroup(groupId) {
+    const group = this.groups.find(g => g.id === groupId);
+    if (!group) return;
+
+    // Check if already applied
+    if (group.applied) {
+      this.showToast('Already Applied', `You have already submitted an application to ${group.name}.`, 'info');
+      return;
+    }
+
+    // Set applied status
+    group.applied = true;
+    if (group.currentMembers < group.maxMembers) {
+      group.currentMembers += 1;
+    }
+    this.saveStateToStorage();
+    this.renderGroups();
+
+    // Try posting to Express backend
+    try {
+      fetch(`${API_BASE}/groups/join`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          groupId,
+          candidateName: 'Quiet Builder',
+          note: 'Applied with verified proof-of-work'
+        })
+      }).catch(err => console.info('Backend group join sync offline:', err));
+    } catch (e) {}
+
+    // Emit confirmation toast
+    this.showToast(
+      `Application sent to ${group.name} leads!`,
+      `Seeking: ${group.seeking}. Your proof-of-work has been shared with the team.`,
+      'success'
+    );
+  }
+
+  /**
+   * 3. INVITATION HANDSHAKE MODAL
+   */
+  openInviteModal(candidateId) {
+    const candidate = this.candidates.find(c => c.id === candidateId);
+    if (!candidate) return;
+
+    this.selectedCandidateId = candidateId;
+    this.formPayload = {
+      role: 'Backend C++ Developer',
+      message: ''
+    };
+
+    // Update Modal DOM
+    this.dom.modalHeading.textContent = `Send Invitation to ${candidate.name}`;
+    this.dom.modalCandidateAvatar.textContent = candidate.name.charAt(0);
+    this.dom.modalCandidateName.textContent = candidate.name;
+    this.dom.modalCandidateSub.textContent = `${(candidate.skills || []).slice(0, 3).join(', ')} • ${candidate.proofOfWork}`;
+
+    this.dom.inviteRoleSelect.value = 'Backend C++ Developer';
+    this.dom.inviteMessageInput.value = '';
+
+    this.dom.inviteModalOverlay.classList.add('active');
+    document.body.style.overflow = 'hidden';
+
+    setTimeout(() => {
+      this.dom.inviteRoleSelect.focus();
+    }, 100);
+  }
+
+  closeInviteModal() {
+    this.selectedCandidateId = null;
+    this.dom.inviteModalOverlay.classList.remove('active');
+    document.body.style.overflow = '';
+  }
+
+  async sendInvite(candidateId, role, message = '') {
+    const targetId = candidateId || this.selectedCandidateId;
+    const candidate = this.candidates.find(c => c.id === targetId);
+    if (!candidate) return;
+
+    const assignedRole = role || this.formPayload.role || 'Backend C++ Developer';
+
+    // Mark connected state and persist
+    candidate.connected = true;
+    this.saveStateToStorage();
+
+    // Close modal
+    this.closeInviteModal();
+
+    // Re-render candidates
+    this.renderCandidates();
+
+    // Post to backend
+    try {
+      fetch(`${API_BASE}/invitations`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          candidateId: targetId,
+          role: assignedRole,
+          message: message || ''
+        })
+      }).catch(err => console.info('Backend invitation offline:', err));
+    } catch (e) {}
+
+    // Emit success toast
+    this.showToast(
+      `Invitation sent to ${candidate.name}!`,
+      `Role: ${assignedRole}. Successfully linked to developer group.`,
+      'success'
+    );
+  }
+
+  /**
+   * Render candidate cards into grid
+   */
+  renderCandidates() {
+    const filtered = this.filterCandidates(this.searchQuery);
+    const count = filtered.length;
+    const currentQuery = (this.searchQuery || '').trim().toLowerCase();
+
+    // Update status bar
+    if (currentQuery) {
+      this.dom.resultsStatusText.innerHTML = `Found <strong>${count}</strong> candidate${count === 1 ? '' : 's'} matching "<strong>${escapeHTML(this.searchQuery)}</strong>"`;
+    } else {
+      this.dom.resultsStatusText.innerHTML = `Showing all <strong>${this.candidates.length}</strong> quiet builders`;
+    }
+
+    // Update filter chips
+    this.dom.filterChips.forEach(chip => {
+      const val = chip.getAttribute('data-filter') || '';
+      if (val.toLowerCase() === currentQuery) {
+        chip.classList.add('active');
+      } else if (!currentQuery && val === '') {
+        chip.classList.add('active');
+      } else {
+        chip.classList.remove('active');
+      }
+    });
+
+    // Empty state
+    if (count === 0) {
+      this.dom.candidatesGrid.style.display = 'none';
+      this.dom.emptyStateView.style.display = 'block';
+      this.dom.emptyQueryDisplay.textContent = this.searchQuery;
+      return;
+    }
+
+    this.dom.candidatesGrid.style.display = 'grid';
+    this.dom.emptyStateView.style.display = 'none';
+
+    // Render Cards
+    this.dom.candidatesGrid.innerHTML = filtered.map(c => {
+      const isMatch = (term) => currentQuery && term.toLowerCase().includes(currentQuery);
+
+      const skillsHTML = (c.skills || []).map(skill => {
+        const highlighted = isMatch(skill) ? 'match-highlight' : '';
+        return `<span class="skill-pill ${highlighted}">${escapeHTML(skill)}</span>`;
+      }).join('');
+
+      // Meta Links (Resume badge, GitHub, Portfolio)
+      let metaLinksHTML = '';
+      if (c.resumeFileName) {
+        metaLinksHTML += `
+          <span class="meta-link-pill" title="Resume on file">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+            <span>Resume</span>
+          </span>
+        `;
+      }
+      if (c.github) {
+        metaLinksHTML += `
+          <a href="${escapeHTML(c.github)}" target="_blank" rel="noopener noreferrer" class="meta-link-pill">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+            <span>GitHub</span>
+          </a>
+        `;
+      }
+      if (c.portfolio) {
+        metaLinksHTML += `
+          <a href="${escapeHTML(c.portfolio)}" target="_blank" rel="noopener noreferrer" class="meta-link-pill">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+            <span>Portfolio</span>
+          </a>
+        `;
+      }
+
+      const connectedBtnHTML = c.connected
+        ? `<button type="button" class="btn-invite-team is-connected" disabled>
+             <svg viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+             <span>Invited ✓</span>
+           </button>`
+        : `<button type="button" class="btn-invite-team" onclick="window.talentMatcher.openInviteModal('${c.id}')">
+             <span>Invite to Team</span>
+           </button>`;
+
+      return `
+        <div class="candidate-card" data-id="${c.id}">
+          <div class="card-top">
+            <div class="candidate-profile">
+              <div class="candidate-avatar">${escapeHTML(c.name.charAt(0))}</div>
+              <div>
+                <h3 class="candidate-name">${escapeHTML(c.name)}</h3>
+                <span class="candidate-role-tag">${escapeHTML(c.roleTag)}</span>
+              </div>
+            </div>
+            <span class="availability-pill">
+              <span class="dot-live"></span>
+              <span>Available</span>
+            </span>
+          </div>
+
+          <div class="card-middle">
+            <div class="skills-pills">
+              ${skillsHTML}
+            </div>
+
+            <div class="pow-box">
+              <svg class="pow-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="16 18 22 12 16 6"/>
+                <polyline points="8 6 2 12 8 18"/>
+              </svg>
+              <span>${escapeHTML(c.proofOfWork)}</span>
+            </div>
+
+            ${metaLinksHTML ? `<div class="candidate-meta-links">${metaLinksHTML}</div>` : ''}
+
+            <div class="availability-text">
+              ${escapeHTML(c.availability)}
+            </div>
+          </div>
+
+          <div class="card-bottom">
+            ${connectedBtnHTML}
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  /**
+   * Render groups board
+   */
+  renderGroups() {
+    if (!this.dom.groupsGrid) return;
+
+    this.dom.groupsGrid.innerHTML = this.groups.map(g => {
+      const dotsHTML = Array.from({ length: g.maxMembers }, (_, i) => {
+        const isFilled = i < g.currentMembers;
+        return `<span class="capacity-dot ${isFilled ? 'filled' : ''}"></span>`;
+      }).join('');
+
+      const tagsHTML = (g.tags || []).map(t => `<span class="group-tag">${escapeHTML(t)}</span>`).join('');
+
+      const buttonHTML = g.applied
+        ? `<button type="button" class="btn-join-group is-applied" disabled>
+             <svg viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+             <span>Application Sent ✓</span>
+           </button>`
+        : `<button type="button" class="btn-join-group" onclick="window.talentMatcher.joinGroup('${g.id}')">
+             <span>Join Group / Apply with Proof-of-Work</span>
+           </button>`;
+
+      return `
+        <div class="group-card" data-id="${g.id}">
+          <div>
+            <div class="group-top">
+              <h3 class="group-name">${escapeHTML(g.name)}</h3>
+              <span class="group-status-pill">Recruiting: 1 Spot Left</span>
+            </div>
+
+            <p class="group-project-desc">${escapeHTML(g.project)}</p>
+
+            <div class="group-seeking-box">
+              <span class="seeking-label">Seeking Role</span>
+              <div class="seeking-role">${escapeHTML(g.seeking)}</div>
+            </div>
+
+            <div class="group-capacity-row">
+              <span>Team Roster (${g.currentMembers}/${g.maxMembers})</span>
+              <div class="capacity-dots">${dotsHTML}</div>
+            </div>
+
+            <div class="group-tags">
+              ${tagsHTML}
+            </div>
+          </div>
+
+          <div>
+            ${buttonHTML}
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  showToast(title, message, type = 'success') {
+    const toast = document.createElement('div');
+    toast.className = `toast-item toast-${type}`;
+
+    let iconSVG = '';
+    if (type === 'success') {
+      iconSVG = `<svg viewBox="0 0 20 20" fill="currentColor">
+                   <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                 </svg>`;
+    } else if (type === 'error') {
+      iconSVG = `<svg viewBox="0 0 20 20" fill="currentColor">
+                   <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+                 </svg>`;
+    } else {
+      iconSVG = `<svg viewBox="0 0 20 20" fill="currentColor">
+                   <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd"/>
+                 </svg>`;
+    }
+
+    toast.innerHTML = `
+      <div class="toast-icon">${iconSVG}</div>
+      <div class="toast-text">
+        <div class="toast-title">${escapeHTML(title)}</div>
+        <div class="toast-detail">${escapeHTML(message)}</div>
+      </div>
+      <button type="button" class="toast-close-x" aria-label="Close notification">✕</button>
+    `;
+
+    const closeBtn = toast.querySelector('.toast-close-x');
+    closeBtn.addEventListener('click', () => {
+      toast.style.opacity = '0';
+      toast.style.transform = 'translateY(-10px)';
+      setTimeout(() => toast.remove(), 250);
+    });
+
+    this.dom.toastTray.appendChild(toast);
+
+    setTimeout(() => {
+      if (toast.parentElement) {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateY(-10px)';
+        setTimeout(() => toast.remove(), 250);
+      }
+    }, 4500);
+  }
+
+  bindEvents() {
+    // Search input
+    this.dom.searchInput.addEventListener('input', (e) => {
+      this.handleSearchInput(e.target.value);
+    });
+
+    // Enter key scrolls down to discovery
+    this.dom.searchInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        document.getElementById('discovery').scrollIntoView({ behavior: 'smooth' });
+      }
+    });
+
+    this.dom.searchSubmitBtn.addEventListener('click', () => {
+      document.getElementById('discovery').scrollIntoView({ behavior: 'smooth' });
+    });
+
+    this.dom.clearInputBtn.addEventListener('click', () => {
+      this.handleSearchInput('', true);
+      this.dom.searchInput.focus();
+    });
+
+    this.dom.resetSearchBtn.addEventListener('click', () => {
+      this.handleSearchInput('', true);
+      this.dom.searchInput.focus();
+    });
+
+    // Voice search mic button
+    this.dom.voiceMicBtn.addEventListener('click', () => {
+      if (this.isListening) {
+        this.stopListening();
+      } else {
+        this.startListening();
+      }
+    });
+
+    // Filter Chips
+    this.dom.filterChips.forEach(chip => {
+      chip.addEventListener('click', () => {
+        const filter = chip.getAttribute('data-filter') || '';
+        this.handleSearchInput(filter, true);
+        document.getElementById('discovery').scrollIntoView({ behavior: 'smooth' });
+      });
+    });
+
+    // CTA Button smooth scroll
+    this.dom.mainCtaBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      document.getElementById('discovery').scrollIntoView({ behavior: 'smooth' });
+    });
+
+    // Invite Modal close listeners
+    this.dom.closeInviteModalBtn.addEventListener('click', () => this.closeInviteModal());
+    this.dom.cancelInviteModalBtn.addEventListener('click', () => this.closeInviteModal());
+    this.dom.inviteModalOverlay.addEventListener('click', (e) => {
+      if (e.target === this.dom.inviteModalOverlay) this.closeInviteModal();
+    });
+
+    // Invite Form Submit
+    this.dom.inviteForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const role = this.dom.inviteRoleSelect.value;
+      const msg = this.dom.inviteMessageInput.value;
+      this.sendInvite(this.selectedCandidateId, role, msg);
+    });
+
+    this.dom.inviteRoleSelect.addEventListener('change', (e) => {
+      this.formPayload.role = e.target.value;
+    });
+
+    // Create Profile Modal triggers
+    if (this.dom.openCreateProfileNavBtn) {
+      this.dom.openCreateProfileNavBtn.addEventListener('click', () => this.openCreateProfileModal());
+    }
+    if (this.dom.openCreateProfileHeroBtn) {
+      this.dom.openCreateProfileHeroBtn.addEventListener('click', () => this.openCreateProfileModal());
+    }
+    if (this.dom.closeCreateProfileModalBtn) {
+      this.dom.closeCreateProfileModalBtn.addEventListener('click', () => this.closeCreateProfileModal());
+    }
+    if (this.dom.cancelCreateProfileBtn) {
+      this.dom.cancelCreateProfileBtn.addEventListener('click', () => this.closeCreateProfileModal());
+    }
+    if (this.dom.createProfileModalOverlay) {
+      this.dom.createProfileModalOverlay.addEventListener('click', (e) => {
+        if (e.target === this.dom.createProfileModalOverlay) this.closeCreateProfileModal();
+      });
+    }
+
+    // Resume File Input change
+    if (this.dom.resumeFileInput) {
+      this.dom.resumeFileInput.addEventListener('change', (e) => {
+        if (e.target.files && e.target.files[0]) {
+          this.handleResumeFileSelection(e.target.files[0]);
+        }
+      });
+    }
+
+    // Remove resume button
+    if (this.dom.removeResumeBtn) {
+      this.dom.removeResumeBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.clearResumeFile();
+      });
+    }
+
+    // Create Profile Form Submit
+    if (this.dom.createProfileForm) {
+      this.dom.createProfileForm.addEventListener('submit', (e) => {
+        this.handleCreateProfileSubmit(e);
+      });
+    }
+
+    // Escape key closes modals
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        if (this.dom.inviteModalOverlay.classList.contains('active')) {
+          this.closeInviteModal();
+        }
+        if (this.dom.createProfileModalOverlay && this.dom.createProfileModalOverlay.classList.contains('active')) {
+          this.closeCreateProfileModal();
+        }
+      }
+    });
+  }
+}
+
+function escapeHTML(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+// Bootstrap on DOM load
+document.addEventListener('DOMContentLoaded', () => {
+  initDotMatrixCanvas();
+  window.talentMatcher = new TalentBridgeApp();
+  window.TalentApp = window.talentMatcher;
+});
+
   </script>
 </body>
 </html>
