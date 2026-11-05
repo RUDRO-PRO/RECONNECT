@@ -1518,6 +1518,117 @@ h1 .line-2 {
   color: var(--ink);
 }
 
+/* User Auth Badge & Session */
+.user-profile-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: #ffffff;
+  border: 1px solid rgba(17, 17, 17, 0.16);
+  padding: 5px 12px 5px 10px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink);
+}
+
+.user-avatar-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #16a34a;
+}
+
+.user-display-name {
+  font-weight: 600;
+  color: var(--ink);
+  max-width: 130px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.btn-signout {
+  background: none;
+  border: none;
+  color: var(--mute);
+  font-size: 11.5px;
+  cursor: pointer;
+  padding: 2px 4px;
+  transition: color 0.15s ease;
+  font-family: inherit;
+}
+
+.btn-signout:hover {
+  color: #dc2626;
+}
+
+/* Auth Modal Tabs */
+.auth-tabs {
+  display: flex;
+  align-items: center;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+  margin-bottom: 20px;
+}
+
+.auth-tab {
+  flex: 1;
+  text-align: center;
+  padding: 10px;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  font-size: 13.5px;
+  font-weight: 500;
+  color: var(--mute);
+  cursor: pointer;
+  font-family: inherit;
+  transition: all 0.2s ease;
+}
+
+.auth-tab.active {
+  color: var(--ink);
+  font-weight: 600;
+  border-bottom-color: var(--ink);
+}
+
+/* Group Creation Trigger & Row */
+.groups-actions-row {
+  display: flex;
+  justify-content: center;
+  margin-top: 24px;
+  margin-bottom: 4px;
+}
+
+.btn-create-group {
+  background: #ffffff;
+  border: 1px solid rgba(17, 17, 17, 0.2);
+  color: var(--ink);
+  padding: 8px 20px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  transition: all 0.2s ease;
+  font-family: inherit;
+}
+
+.btn-create-group:hover:not(:disabled) {
+  background: var(--ink);
+  color: #ffffff;
+  border-color: var(--ink);
+  transform: translateY(-1px);
+}
+
+.btn-create-group:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  border-style: dashed;
+}
+
 /* Page Footer */
 footer.page-footer {
   background: var(--bg);
