@@ -1,0 +1,14 @@
+{
+  "name": "talent-bridge",
+  "version": "1.0.0",
+  "description": "Talent Bridge - Bridging the Talent Gap Fullstack Monorepo",
+  "scripts": {
+    "backend:install": "npm --prefix backend install",
+    "backend:start": "npm --prefix backend start",
+    "backend:dev": "npm --prefix backend run dev",
+    "frontend:install": "npm --prefix frontend install",
+    "frontend:dev": "npm --prefix frontend run dev",
+    "frontend:build": "npm --prefix frontend run build"
+  }
+}
+
