@@ -1,3 +1,4 @@
+import { inject } from "@vercel/analytics";
 import { installReadiness, teamControls } from "./readiness.js";
 import { installSocialUI } from "./social.js";
 import { shareTools, inviteUrl } from "./communities.js";
@@ -17,6 +18,9 @@ import {
   projectRow,
   inviteButton,
 } from "./ui.js";
+
+// Initialize Vercel Web Analytics
+inject();
 const TOKEN_KEY = "reconnect_token";
 const storage = {
   get: (key) => {
