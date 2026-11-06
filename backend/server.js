@@ -304,6 +304,8 @@ function createApp(options = {}) {
   app.use("/api", (req, res) =>
     res.status(404).json({ message: "Endpoint not found." }),
   );
+  // Vercel serves the SPA separately; local Express can still serve a built frontend.
+  if (options.serveFrontend !== false) {
   app.use(express.static(path.join(__dirname, "../frontend/dist")));
   app.get(
     [
@@ -325,6 +327,7 @@ function createApp(options = {}) {
     (req, res) =>
       res.sendFile(path.join(__dirname, "../frontend/dist/index.html")),
   );
+  }
   app.use((error, req, res, next) => {
     const status =
       error.name === "ValidationError" || error.name === "CastError"

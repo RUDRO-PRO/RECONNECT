@@ -10,14 +10,14 @@
     "frontend:dev": "npm --prefix frontend run dev",
     "frontend:build": "npm --prefix frontend run build",
     "build": "cd frontend && npm install --include=dev && npm run build",
-    "start": "node backend/server.js"
+    "start": "node backend/server.js",
+    "check:function": "node scripts/check-function-size.cjs"
   },
   "engines": {
     "node": "22.x"
   },
   "private": true,
   "dependencies": {
-    "@google/genai": "^2.32.0",
     "bcryptjs": "^3.0.3",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
@@ -27,5 +27,9 @@
     "jsonwebtoken": "^9.0.3",
     "mongoose": "^9.12.0",
     "nodemailer": "^10.3.1"
+  },
+  "devDependencies": {
+    "@vercel/nft": "^1.11.1",
+    "picomatch": "^4.0.7"
   }
 }

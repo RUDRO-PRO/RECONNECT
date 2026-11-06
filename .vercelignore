@@ -5,3 +5,7 @@ backend/tests
 frontend/tests
 *.png
 .git
+**/node_modules
+backend/uploads
+**/.cache
+**/coverage

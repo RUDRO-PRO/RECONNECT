@@ -21,7 +21,7 @@ async function ensureDatabase() {
   return cachedConn;
 }
 // Models and middleware are initialized once per warm function, never per request.
-const app = createApp({ ensureDatabase });
+const app = createApp({ ensureDatabase, serveFrontend: false });
 module.exports = async (req, res) => {
   const url = new URL(req.url, "http://localhost");
   const routedPath = url.searchParams.get("__path");
