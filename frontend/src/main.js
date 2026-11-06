@@ -1,8 +1,40 @@
+import { installSocialUI } from "./social.js";
+import { shareTools, inviteUrl } from "./communities.js";
+import { compressPhoto } from "./photo.js";
+import { contentPage } from "./content.js";
 import "./style.css";
 import { initDotMatrixCanvas } from "./canvas.js";
-const $ = (id) => document.getElementById(id);
+import {
+  $,
+  escape,
+  avatar,
+  tags,
+  link,
+  profileCard,
+  publicProfile,
+  skillRow,
+  projectRow,
+  inviteButton,
+} from "./ui.js";
+const TOKEN_KEY = "reconnect_token";
+const storage = {
+  get: (key) => {
+    try {
+      return localStorage.getItem(key);
+    } catch {
+      return null;
+    }
+  },
+  set: (key, value) => {
+    try {
+      value === null
+        ? localStorage.removeItem(key)
+        : localStorage.setItem(key, value);
+    } catch {}
+  },
+};
 const state = {
-  token: sessionStorage.getItem("talentbridge_token"),
+  token: storage.get(TOKEN_KEY),
   user: null,
   profile: null,
   profiles: [],
@@ -10,51 +42,57 @@ const state = {
   notifications: [],
   matches: false,
   directoryLoaded: false,
+  viewProfile: null,
+  teams: [],
+  savedTeams: [],
+  links: {},
 };
 let requestVersion = 0,
+  routeVersion = 0,
+  teamVersion = 0,
+  polling = false,
   toastTimer,
   searchTimer,
-  polling = false;
-const escape = (value) =>
-  String(value ?? "").replace(
-    /[&<>"']/g,
-    (c) =>
-      ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[
-        c
-      ],
-  );
-const safeUrl = (value) => {
-  try {
-    const url = new URL(value);
-    return ["https:", "http:"].includes(url.protocol) ? escape(url.href) : "";
-  } catch {
-    return "";
-  }
-};
+  authMode = "login",
+  afterAuth = null,
+  editingTeam = null,
+  deleteAction = null,
+  editorOwner = null;
+const csv = (value) =>
+  value
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
 async function api(path, options = {}) {
+  const token = state.token;
   const response = await fetch(`/api${path}`, {
+    signal: AbortSignal.timeout(30000),
     ...options,
     headers: {
       "Content-Type": "application/json",
-      ...(state.token ? { Authorization: `Bearer ${state.token}` } : {}),
-      ...options.headers,
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
   });
-  const data = await response
-    .json()
-    .catch(() => ({
-      message: "The service is unavailable. Please try again.",
-    }));
+  const data = await response.json().catch(() => ({
+    message: "The service is unavailable. Please try again.",
+  }));
+  if (token && token !== state.token)
+    throw new Error("Your session changed. Please try again.");
   if (!response.ok) {
-    if (response.status === 401 && state.user) signOut();
+    if (
+      response.status === 401 &&
+      token === state.token &&
+      !path.startsWith("/auth/")
+    )
+      clearSession();
     const error = new Error(data.message || "Request failed.");
     error.status = response.status;
     throw error;
   }
   return data;
 }
-const post = (path, body = {}) =>
-  api(path, { method: "POST", body: JSON.stringify(body) });
+const send = (path, body = {}, method = "POST") =>
+  api(path, { method, body: JSON.stringify(body) });
 function toast(message) {
   $("toast").textContent = message;
   $("toast").hidden = false;
@@ -63,34 +101,58 @@ function toast(message) {
 }
 function renderAccount() {
   $("account").hidden = !state.user;
-  $("google-signin").hidden = !!state.user;
+  $("open-auth").hidden = !!state.user;
+
+
+  $("create-profile").hidden = !state.user;
   $("connections-section").hidden = !state.user;
-  $("account-name").textContent = state.user?.name || "";
-  $("avatar").hidden = !safeUrl(state.user?.avatar);
-  if (state.user?.avatar) $("avatar").src = state.user.avatar;
+  $("my-teams-label").hidden = !state.user;
+  $("account-name").textContent = state.user?.name?.split(" ")[0] || "Account";
+  const image = state.profile?.avatar || state.user?.avatar;
+  $("avatar").hidden = !image;
+  $("account-initial").hidden = !!image;
+  $("account-initial").textContent = (state.user?.name || "R")
+    .charAt(0)
+    .toUpperCase();
+  if (image) $("avatar").src = image;
   $("create-profile").textContent = state.profile
     ? "Edit Profile"
     : "Create Profile";
-  $("profile-auth-hint").textContent = state.user
-    ? ""
-    : "You can fill out your profile now. Sign in with Google in the navigation before publishing; your draft stays here.";
 }
-function signOut() {
+function clearSession(persist = true) {
+  social.reset();
   state.token = null;
   state.user = null;
   state.profile = null;
   state.invitations = [];
   state.notifications = [];
-  sessionStorage.removeItem("talentbridge_token");
-  window.google?.accounts.id.disableAutoSelect();
-  $("notifications").close();
-  $("profile-dialog").close();
+  state.savedTeams = [];
+  state.teams = [];
+  $("account-menu").open = false;
+  if (persist) storage.set(TOKEN_KEY, null);
+  editorOwner = null;
+  for (const id of [
+    "notifications",
+    "profile-dialog",
+    "team-dialog",
+    "delete-dialog",
+    "community-dialog",
+    "community-created",
+  ])
+    $(id).close();
   $("profile-form").reset();
-  $("connections").replaceChildren();
+  $("skill-rows").replaceChildren();
+  $("project-rows").replaceChildren();
   $("notification-list").replaceChildren();
+  $("connections").replaceChildren();
   $("unread").textContent = "0";
+  window.google?.accounts?.id.disableAutoSelect();
   renderAccount();
-  loadProfiles();
+  renderProfiles();
+  renderViewedProfile();
+  renderTeams();
+  if (location.pathname === "/projects") void loadContent();
+  if (["/teams", "/saved-teams", "/my-teams"].includes(location.pathname)) void loadTeams();
 }
 async function hydrate() {
   const token = state.token;
@@ -105,38 +167,149 @@ async function hydrate() {
   state.invitations = invitations;
   renderAccount();
   renderProfiles();
+  renderViewedProfile();
+  state.savedTeams = await api("/teams/saved");
+  if (location.pathname === "/projects") void loadContent();
+  if (["/teams", "/saved-teams", "/my-teams"].includes(location.pathname)) await loadTeams();
   await refreshNotifications();
 }
-async function setupGoogle() {
+async function signedIn(result) {
+  state.token = result.token;
+  storage.set(TOKEN_KEY, result.token);
+  await hydrate();
+  $("auth-dialog").close();
+  $("auth-form").elements.password.value = "";
+  toast("Signed in successfully.");
+  const action = afterAuth;
+  afterAuth = null;
+  if (action) action();
+}
+function setAuthMode(mode) {
+  authMode = mode;
+  const form = $("auth-form"),
+    registration = mode === "register",
+    reset = mode === "reset",
+    forgot = mode === "forgot";
+  $("auth-title").textContent = {
+    login: "Welcome back",
+    register: "Join the builders",
+    forgot: "Reset your password",
+    reset: "Check your inbox",
+  }[mode];
+  $("auth-methods").hidden = forgot || reset;
+  $("auth-name-label").hidden = !registration;
+  form.elements.fullName.disabled = !registration;
+  form.elements.fullName.required = registration;
+  $("auth-otp-label").hidden = !reset;
+  form.elements.otp.disabled = !reset;
+  form.elements.otp.required = reset;
+  $("auth-password-label").hidden = forgot;
+  form.elements.password.disabled = forgot;
+  form.elements.password.required = !forgot;
+  form.elements.password.autocomplete =
+    mode === "login" ? "current-password" : "new-password";
+  form.elements.password.value = "";
+  $("auth-submit").textContent = {
+    login: "Sign In",
+    register: "Create account",
+    forgot: "Send reset code",
+    reset: "Update password",
+  }[mode];
+  $("forgot-password").hidden = forgot || reset;
+  $("auth-back").hidden = !forgot && !reset;
+  $("resend-code").hidden = !reset;
+  $("auth-error").textContent = "";
+  $("auth-message").textContent = "";
+  document
+    .querySelectorAll("[data-auth-mode]")
+    .forEach((b) =>
+      b.setAttribute("aria-pressed", String(b.dataset.authMode === mode)),
+    );
+}
+function openAuth(next) {
+  afterAuth = next || null;
+  setAuthMode("login");
+  $("auth-dialog").showModal();
+  void setupGoogle();
+  $("auth-form").elements.email.focus();
+}
+$("open-auth").onclick = () => openAuth();
+$("forgot-password").onclick = () => setAuthMode("forgot");
+$("auth-back").onclick = () => setAuthMode("login");
+$("resend-code").onclick = () => setAuthMode("forgot");
+document
+  .querySelectorAll("[data-auth-mode]")
+  .forEach((b) => (b.onclick = () => setAuthMode(b.dataset.authMode)));
+$("auth-form").onsubmit = async (event) => {
+  event.preventDefault();
+  const values = Object.fromEntries(new FormData(event.target));
+  $("auth-submit").disabled = true;
+  $("auth-error").textContent = "";
   try {
-    const config = await api("/config");
-    if (!config.googleClientId)
-      throw new Error("Google sign-in is not configured yet.");
+    const endpoint = {
+      login: "login",
+      register: "register",
+      forgot: "forgot-password",
+      reset: "reset-password",
+    }[authMode];
+    const result = await send(`/auth/${endpoint}`, values);
+    if (authMode === "forgot") {
+      setAuthMode("reset");
+      $("auth-message").textContent = result.message;
+      $("auth-form").elements.otp.focus();
+    } else if (authMode === "reset") {
+      setAuthMode("login");
+      $("auth-message").textContent = result.message;
+    } else await signedIn(result);
+  } catch (error) {
+    $("auth-error").textContent = error.message;
+  } finally {
+    $("auth-submit").disabled = false;
+  }
+};
+let googleLoading = false;
+async function setupGoogle() {
+  if (googleLoading) return;
+  googleLoading = true;
+  $("google-signin").textContent = "Loading Google sign-in…";
+  try {
+    const { googleClientId, links } = await api("/config");
+    state.links = links || {};
+    for (const anchor of document.querySelectorAll("[data-social]")) {
+      const url = state.links[anchor.dataset.social];
+      if (url) {
+        anchor.href = url;
+        anchor.target = "_blank";
+        anchor.rel = "noopener noreferrer";
+        anchor.removeAttribute("data-route");
+      }
+    }
+    if (location.pathname.startsWith("/resources/")) loadContent();
+    if (!googleClientId)
+      throw new Error("Google sign-in is unavailable. Use email below.");
     await new Promise((resolve, reject) => {
-      let attempts = 0;
-      const check = setInterval(() => {
+      let n = 0;
+      const timer = setInterval(() => {
         if (window.google?.accounts?.id) {
-          clearInterval(check);
+          clearInterval(timer);
           resolve();
-        } else if (++attempts > 100) {
-          clearInterval(check);
+        } else if (++n > 100) {
+          clearInterval(timer);
           reject(
-            new Error("Google sign-in could not load. Please reload to retry."),
+            new Error(
+              "Google could not load. Email sign-in is available below.",
+            ),
           );
         }
       }, 100);
     });
     google.accounts.id.initialize({
-      client_id: config.googleClientId,
+      client_id: googleClientId,
       callback: async ({ credential }) => {
         try {
-          const result = await post("/auth/google", { credential });
-          state.token = result.token;
-          sessionStorage.setItem("talentbridge_token", result.token);
-          await hydrate();
-          toast("Signed in successfully.");
+          await signedIn(await send("/auth/google", { credential }));
         } catch (error) {
-          toast(error.message);
+          $("auth-error").textContent = error.message;
         }
       },
     });
@@ -145,153 +318,467 @@ async function setupGoogle() {
       theme: "outline",
       size: "large",
       shape: "pill",
-      text: "signin_with",
+      text: "continue_with",
     });
   } catch (error) {
     $("google-signin").textContent = error.message;
+  } finally { googleLoading = false; }
+}
+$("signout").onclick = async () => {
+  try {
+    await send("/auth/logout");
+    clearSession();
+    toast("Signed out.");
+  } catch (error) {
+    clearSession();
+    toast(
+      "Signed out on this device. Server session revocation could not be confirmed.",
+    );
   }
-}
-function invitationFor(profile) {
-  return state.invitations.find(
-    (i) => i.senderId === profile.userId || i.receiverId === profile.userId,
+};
+function applyTheme(theme) {
+  document.documentElement.classList.toggle("dark", theme === "dark");
+
+  $("theme-toggle").setAttribute(
+    "aria-label",
+    `Switch to ${theme === "dark" ? "light" : "dark"} theme`,
   );
+  $("theme-toggle").setAttribute("aria-pressed", String(theme === "dark"));
 }
-function renderProfiles() {
-  if (!state.directoryLoaded) return;
-  if (!state.profiles.length) {
-    $("profiles").innerHTML =
-      `<div class="empty"><h3>${state.matches ? "No complementary builders found yet." : $("search").value.trim() ? "No builders match your search." : "No builders registered yet."}</h3><p>${state.matches ? "Check back as more builders join the community." : "Be the first to create a profile and let your work speak."}</p><button id="empty-create">Create Profile ↗</button></div>`;
-    $("empty-create").onclick = openProfile;
+applyTheme(storage.get("reconnect_theme") || "light");
+$("theme-toggle").onclick = async (event) => {
+  const theme = document.documentElement.classList.contains("dark")
+    ? "light"
+    : "dark";
+  storage.set("reconnect_theme", theme);
+  const button = $("theme-toggle");
+  if (!document.startViewTransition || matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    applyTheme(theme);
     return;
   }
-  $("profiles").innerHTML = state.profiles
-    .map((p) => {
-      const own = p.userId === state.user?.id,
-        invitation = invitationFor(p);
-      const label = own
-        ? "Your profile"
-        : invitation?.status === "accepted"
-          ? "Connected ✓"
-          : invitation?.status === "rejected"
-            ? "Invitation declined"
-            : invitation
-              ? invitation.senderId === state.user?.id
-                ? "Invited ✓"
-                : "Respond in notifications"
-              : "Invite to Team ↗";
-      const incoming =
-        invitation?.status === "pending" &&
-        invitation.receiverId === state.user?.id;
-      return `<article class="card"><span class="initial">${escape(p.fullName.charAt(0).toUpperCase())}</span><h3>${escape(p.fullName)}</h3><p>${escape(p.roleTag)}</p><div class="tags">${p.skills.map((s) => `<span class="tag">${escape(s)}</span>`).join("")}</div><p>${escape(p.proofOfWork)}</p><p class="availability">● ${escape(p.availabilityStatus)}</p>${p.matchReason ? `<p class="match-reason">${escape(p.matchReason)}</p>` : ""}<div class="card-links">${[
-        ["githubUrl", "GitHub ↗"],
-        ["portfolioUrl", "Portfolio / LeetCode ↗"],
-      ]
-        .map(([key, label]) =>
-          safeUrl(p[key])
-            ? `<a href="${safeUrl(p[key])}" target="_blank" rel="noopener noreferrer">${label}</a>`
-            : "",
-        )
-        .join(
-          "",
-        )}</div><button data-invite="${escape(p.userId)}" ${incoming ? 'data-incoming="true"' : ""} ${own || (invitation && !incoming) ? "disabled" : ""}>${label}</button></article>`;
-    })
-    .join("");
+  const bounds = button.getBoundingClientRect();
+  const x = event.detail ? event.clientX : bounds.left + bounds.width / 2;
+  const y = event.detail ? event.clientY : bounds.top + bounds.height / 2;
+  button.disabled = true;
+  document.documentElement.classList.add("theme-wipe");
+  try {
+    const transition = document.startViewTransition(() => applyTheme(theme));
+    await transition.ready;
+    await document.documentElement.animate({
+      clipPath: [`circle(0px at ${x}px ${y}px)`, `circle(${Math.hypot(innerWidth, innerHeight)}px at ${x}px ${y}px)`],
+    }, { duration: 550, easing: "cubic-bezier(.2,.7,.2,1)", pseudoElement: "::view-transition-new(root)" }).finished;
+    await transition.finished;
+  } catch { applyTheme(theme); }
+  finally {
+    document.documentElement.classList.remove("theme-wipe");
+    button.disabled = false;
+  }
+};
+function navigate(url) {
+  history.pushState({}, "", url);
+  renderRoute();
+}
+function renderViewedProfile() {
+  if (state.viewProfile && !$("public-view").hidden)
+    $("public-view").innerHTML = publicProfile(state.viewProfile, state);
+}
+async function loadContent() {
+  const version = routeVersion,
+    path = location.pathname.startsWith("/community/join/") ? "/projects" : location.pathname;
+  $("content-view").innerHTML = '<p role="status">Loading…</p>';
+  try {
+    const html = await contentPage(path, { api, state, health: refreshHealth });
+    if (version !== routeVersion) return;
+    $("content-view").innerHTML = html;
+    const heading = $("content-view").querySelector("h1");
+    if (heading) document.title = heading.textContent + " — Reconnect";
+  } catch (error) {
+    if (version === routeVersion)
+      $("content-view").innerHTML =
+        '<div class="empty"><h1>Could not load this page</h1><p>' +
+        escape(error.message) +
+        "</p><button data-refresh-content>Try again</button></div>";
+  }
+}
+async function refreshHealth() {
+  let health;
+  try {
+    const response = await fetch("/api/health", {
+      signal: AbortSignal.timeout(5000),
+    });
+    health = await response.json();
+    if (!health.status) throw Error("Unsupported health response");
+  } catch {
+    health = {
+      status: "unavailable",
+      services: { api: "unavailable" },
+      checkedAt: new Date().toISOString(),
+    };
+  }
+  $("system-status").dataset.status = health.status;
+  $("system-status-label").textContent =
+    health.status === "operational"
+      ? "All Systems Operational"
+      : health.status === "degraded"
+        ? "Core online · Limited services"
+        : "Service unavailable";
+  return health;
+}
+async function renderRoute() {
+  const version = ++routeVersion,
+    path = location.pathname.startsWith("/community/join/") ? "/projects" : location.pathname;
+  const profileId = path.match(/^\/profile\/([^/]+)$/)?.[1];
+  const teams = ["/teams", "/saved-teams", "/my-teams"].includes(path),
+    home = ["/", "/match"].includes(path),
+    content = !home && !teams && !profileId;
+  $("home-view").hidden = !home;
+  $("public-view").hidden = !profileId;
+  $("teams-view").hidden = !teams;
+  $("content-view").hidden = !content;
+  document.body.classList.toggle("match-view", path === "/match");
+  $("primary-links").classList.remove("mobile-open");
+  $("mobile-menu-toggle").setAttribute("aria-expanded", "false");
+  $("account-menu").open = false;
+  const active =
+    path === "/match"
+      ? "match"
+      : teams
+        ? "teams"
+        : path === "/projects"
+          ? "projects"
+          : home || profileId
+            ? "explore"
+            : "";
+  document.querySelectorAll("[data-nav]").forEach((a) => {
+    if (a.dataset.nav === active) a.setAttribute("aria-current", "page");
+    else a.removeAttribute("aria-current");
+  });
+  state.viewProfile = null;
+  if (profileId) {
+    $("public-view").innerHTML =
+      '<p role="status">Loading builder profile…</p>';
+    try {
+      const profile = await api("/profiles/" + encodeURIComponent(profileId));
+      if (version !== routeVersion) return;
+      state.viewProfile = profile;
+      renderViewedProfile();
+      document.title = profile.fullName + " — Reconnect";
+    } catch (error) {
+      if (version === routeVersion)
+        $("public-view").innerHTML =
+          '<div class="empty"><h1>Profile unavailable</h1><p>' +
+          escape(error.message) +
+          '</p><a href="/" data-route>Explore builders</a></div>';
+    }
+  } else if (content) await loadContent();
+  else {
+    document.title = teams
+      ? "Teams & Hackathons — Reconnect"
+      : "Reconnect — Find Builders & Hackathon Partners";
+    if (teams) {
+      $("teams-view").querySelector("h1").textContent =
+        path === "/my-teams" ? "My Teams" : path === "/saved-teams" ? "Saved Teams" : "Teams & Hackathons";
+      $("team-view-filter").closest("label").hidden =
+        ["/my-teams", "/saved-teams"].includes(path) || !state.user;
+      await loadTeams();
+    } else if (location.hash === "#discovery") $("discovery").scrollIntoView();
+  }
+  if (!location.hash) window.scrollTo(0, 0);
+}
+window.addEventListener("popstate", renderRoute);
+document.addEventListener("click", (event) => {
+  const a = event.target.closest("a[data-route]");
+  if (
+    !a ||
+    event.ctrlKey ||
+    event.metaKey ||
+    event.shiftKey ||
+    event.altKey ||
+    event.button !== 0
+  )
+    return;
+  event.preventDefault();
+  navigate(a.getAttribute("href"));
+});
+function renderProfiles() {
+  if (!state.directoryLoaded) return;
+  if (state.profiles.length) {
+    $("profiles").innerHTML = state.profiles
+      .map((p) => profileCard(p, state))
+      .join("");
+    return;
+  }
+  const filtered = [
+    "search",
+    "filter-skill",
+    "filter-college",
+    "filter-available",
+  ].some((id) => $(id).value.trim());
+  $("profiles").innerHTML =
+    `<div class="empty"><h3>${state.matches ? "No complementary builders found yet." : filtered ? "No builders match these filters." : "No builders registered yet."}</h3><p>${state.matches ? "Check back as more builders join." : filtered ? "Try broader filters or explore all builders." : "Be the first to publish a profile and let your work speak."}</p><button data-edit-profile>Create Profile ↗</button></div>`;
 }
 async function loadProfiles() {
   const version = ++requestVersion;
   state.matches = false;
   $("directory-status").textContent = "Loading builders…";
+  const query = new URLSearchParams({
+    search: $("search").value.trim(),
+    skill: $("filter-skill").value.trim(),
+    college: $("filter-college").value.trim(),
+  });
+  if ($("filter-available").value)
+    query.set("available", $("filter-available").value);
   try {
-    const profiles = await api(
-      `/profiles?search=${encodeURIComponent($("search").value.trim())}`,
-    );
+    const profiles = await api(`/profiles?${query}`);
     if (version !== requestVersion) return;
-    state.directoryLoaded = true;
     state.profiles = profiles;
+    state.directoryLoaded = true;
     renderProfiles();
     $("directory-status").textContent =
       `${profiles.length} builder${profiles.length === 1 ? "" : "s"}`;
   } catch (error) {
     if (version !== requestVersion) return;
     state.directoryLoaded = false;
-    state.profiles = [];
     $("directory-status").textContent = "Directory unavailable";
     $("profiles").innerHTML =
       `<div class="empty"><h3>We couldn’t load the directory.</h3><p>${escape(error.message)}</p><button id="retry">Try again</button></div>`;
     $("retry").onclick = loadProfiles;
   }
 }
+function queueSearch(source) {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(() => {
+    if (location.pathname !== "/") navigate("/#discovery");
+    loadProfiles();
+  }, 300);
+}
+for (const id of ["search", "filter-skill", "filter-college"])
+  $(id).oninput = () => queueSearch(id);
+$("filter-available").onchange = () => loadProfiles();
+$("search-form").onsubmit = (e) => {
+  e.preventDefault();
+  clearTimeout(searchTimer);
+  loadProfiles();
+  $("discovery").scrollIntoView();
+};
+$("show-all").onclick = () => {
+  for (const id of [
+    "search",
+    "filter-skill",
+    "filter-college",
+    "filter-available",
+  ])
+    $(id).value = "";
+  loadProfiles();
+};
+async function match() {
+  if (!state.user) return openAuth(match);
+  if (!state.profile) {
+    toast("Publish a profile so we can match your skills.");
+    return openProfile();
+  }
+  navigate("/match");
+  const version = ++requestVersion;
+  $("match").disabled = true;
+  $("nav-match").disabled = true;
+  $("directory-status").textContent = "Finding complementary skills…";
+  try {
+    const matches = await send("/match");
+    if (version !== requestVersion) return;
+    state.matches = true;
+    state.profiles = matches;
+    state.directoryLoaded = true;
+    renderProfiles();
+    $("directory-status").textContent =
+      `${matches.length} complementary matches`;
+  } catch (error) {
+    if (version === requestVersion)
+      $("directory-status").textContent = error.message;
+  } finally {
+    $("match").disabled = false;
+    $("nav-match").disabled = false;
+  }
+}
+$("match").onclick = $("nav-match").onclick = match;
+function awaitHeroSearch() {
+  navigate("/#discovery");
+  $("search").focus();
+}
 function openProfile() {
+  if (!state.user) return openAuth(openProfile);
   const form = $("profile-form");
-  if (state.profile)
-    for (const [key, value] of Object.entries(state.profile)) {
-      if (form.elements.namedItem(key))
-        form.elements.namedItem(key).value = Array.isArray(value)
-          ? value.join(", ")
-          : value;
-    }
-  else if (state.user && !form.elements.fullName.value)
-    form.elements.fullName.value = state.user.name;
+  if (editorOwner !== state.user.id) {
+    form.reset();
+    const p = state.profile || {
+      fullName: state.user.name,
+      avatar: state.user.avatar,
+    };
+    for (const key of [
+      "fullName",
+      "avatar",
+      "headline",
+      "about",
+      "proofOfWork",
+      "resumeUrl",
+      "githubUrl",
+      "portfolioUrl",
+    ])
+      form.elements[key].value = p[key] || "";
+    for (const key of ["institution", "degree", "department", "batchYear"])
+      form.elements[key].value = p.college?.[key] || "";
+    form.elements.interests.value = p.interests?.join(", ") || "";
+    form.elements.domains.value =
+      p.hackathonAvailability?.domains?.join(", ") || "";
+    form.elements.available.checked = !!p.hackathonAvailability?.available;
+    form.elements.roles.value =
+      p.hackathonAvailability?.roles?.join(", ") || "";
+    form.elements.mentorshipAvailable.checked = !!p.mentorshipAvailable;
+    $("skill-rows").innerHTML = (p.skills || []).map(skillRow).join("");
+    $("project-rows").innerHTML = (p.projects || []).map(projectRow).join("");
+    editorOwner = state.user.id;
+  }
   $("profile-error").textContent = "";
-  renderAccount();
+  $("photo-preview").innerHTML = avatar({ avatar: form.elements.avatar.value, fullName: form.elements.fullName.value });
   $("profile-dialog").showModal();
   form.elements.fullName.focus();
 }
 $("create-profile").onclick = openProfile;
-$("close-profile").onclick = $("cancel-profile").onclick = () =>
-  $("profile-dialog").close();
+$("my-profile").onclick = () =>
+  state.profile ? navigate(`/profile/${state.profile._id}`) : openProfile();
+$("add-skill").onclick = () => {
+  if ($("skill-rows").children.length >= 40)
+    return toast("You can add up to 40 skills.");
+  $("skill-rows").insertAdjacentHTML("beforeend", skillRow());
+  $("skill-rows").lastElementChild.querySelector("input").focus();
+};
+$("add-project").onclick = () => {
+  if ($("project-rows").children.length >= 20)
+    return toast("You can add up to 20 projects.");
+  $("project-rows").insertAdjacentHTML("beforeend", projectRow());
+  $("project-rows").lastElementChild.querySelector("input").focus();
+};
+$("profile-dialog").addEventListener("click", (e) => {
+  const button = e.target.closest("[data-remove-row]");
+  if (button) button.closest(".repeater").remove();
+});
 $("profile-form").onsubmit = async (event) => {
   event.preventDefault();
-  if (!state.user) {
-    $("profile-error").textContent =
-      "Sign in with Google in the navigation, then publish your saved draft.";
-    return;
-  }
   const values = Object.fromEntries(new FormData(event.target));
-  values.skills = values.skills
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean);
+  values.college = {};
+  for (const key of ["institution", "degree", "department", "batchYear"]) {
+    values.college[key] = values[key];
+    delete values[key];
+  }
+  values.skills = [...document.querySelectorAll(".skill-row")].map((row) =>
+    Object.fromEntries(
+      [...row.querySelectorAll("[data-field]")].map((el) => [
+        el.dataset.field,
+        el.value,
+      ]),
+    ),
+  );
+  values.projects = [...document.querySelectorAll(".project-row")].map(
+    (row) => {
+      const p = Object.fromEntries(
+        [...row.querySelectorAll("[data-field]")].map((el) => [
+          el.dataset.field,
+          el.value,
+        ]),
+      );
+      p.techStack = csv(p.techStack);
+      return p;
+    },
+  );
+  values.interests = csv(values.interests);
+  values.hackathonAvailability = {
+    available: event.target.elements.available.checked,
+    domains: csv(values.domains),
+    roles: csv(values.roles),
+  };
+  values.mentorshipAvailable =
+    event.target.elements.mentorshipAvailable.checked;
+  delete values.roles;
+  delete values.available;
+  delete values.domains;
   $("publish").disabled = true;
   $("profile-error").textContent = "";
   try {
-    state.profile = await post("/profiles", values);
-    $("profile-dialog").close();
+    state.profile = await send("/profiles", values);
+    editorOwner = null;
+    state.user.avatar = state.profile.avatar;
     renderAccount();
+    $("profile-dialog").close();
     toast("Profile published.");
-    $("search").value = "";
-    await loadProfiles();
-    $("discovery").scrollIntoView({ behavior: "smooth" });
+    loadProfiles();
+    navigate(`/profile/${state.profile._id}`);
   } catch (error) {
     $("profile-error").textContent = error.message;
   } finally {
     $("publish").disabled = false;
   }
 };
-$("profiles").onclick = async (event) => {
+function askDelete(title, description, action) {
+  deleteAction = action;
+  $("delete-title").textContent = title;
+  $("delete-description").textContent = description;
+  $("delete-error").textContent = "";
+  $("delete-dialog").showModal();
+}
+$("confirm-delete").onclick = async () => {
+  $("confirm-delete").disabled = true;
+  try {
+    await deleteAction();
+    $("delete-dialog").close();
+  } catch (error) {
+    $("delete-error").textContent = error.message;
+  } finally {
+    $("confirm-delete").disabled = false;
+  }
+};
+document.addEventListener("click", async (event) => {
+  if (event.target.closest("[data-edit-profile]")) return openProfile();
+  if (event.target.closest("[data-delete-profile]"))
+    return askDelete(
+      "Delete your public profile?",
+      "This removes your published profile and closes your team listings. Your account and existing connections remain.",
+      async () => {
+        await api(`/profiles/${state.profile._id}`, { method: "DELETE" });
+        state.profile = null;
+        editorOwner = null;
+        renderAccount();
+        loadProfiles();
+        navigate("/#discovery");
+        toast("Profile deleted.");
+      },
+    );
   const button = event.target.closest("[data-invite]");
   if (!button) return;
   if (button.dataset.incoming) return openNotifications();
-  if (!state.user) return toast("Sign in with Google to invite builders.");
+  if (!state.user) return openAuth();
+  if (!state.profile) {
+    toast("Publish your profile before connecting.");
+    return openProfile();
+  }
+  const note = await social.requestNote();
+  if (note === null) return;
   button.disabled = true;
   try {
-    const invitation = await post("/invitations", {
-      receiverId: button.dataset.invite,
-    });
-    state.invitations.push(invitation);
+    state.invitations.push(
+      await send("/invitations", { receiverId: button.dataset.invite, note }),
+    );
     renderProfiles();
+    renderViewedProfile();
+    renderTeams();
     toast("Invitation sent.");
   } catch (error) {
     toast(error.message);
     button.disabled = false;
     if (error.status === 409) {
-      state.invitations = await api("/invitations").catch(
-        () => state.invitations,
-      );
-      renderProfiles();
+      await refreshNotifications();
+      renderTeams();
     }
   }
-};
+});
 function renderNotifications() {
   $("unread").textContent = state.notifications.filter((n) => !n.read).length;
   $("notifications-toggle").setAttribute(
@@ -301,11 +788,11 @@ function renderNotifications() {
   $("notification-list").innerHTML = state.notifications.length
     ? state.notifications
         .map(
-          (n) =>
-            `<article class="notification"><p><strong>${escape(n.senderId?.name || "A builder")}</strong> ${n.type === "invitation" ? "invited you to join their team." : `${n.type === "accepted" ? "accepted" : "declined"} your invitation.`}</p><time>${escape(new Date(n.createdAt).toLocaleString())}</time>${n.type === "invitation" && n.invitationId?.status === "pending" ? `<button class="primary" data-response="accept" data-id="${n._id}">Accept</button><button data-response="decline" data-id="${n._id}">Decline</button>` : `<span class="muted">${escape(n.invitationId?.status || n.type)}</span>`}</article>`,
+          (n) => n.type === "team_invite" ? `<article class="notification"><p>${escape(n.message)}</p>${n.status === "pending" ? `<button class="primary" data-team-response="accept" data-id="${n._id}">Join Team</button><button data-team-response="decline" data-id="${n._id}">Decline</button>` : `<span class="muted">${escape(n.status)}</span>`}</article>` : n.type === "community" ? `<article class="notification"><p>${escape(n.message)}</p><button class="primary" data-join-community="${escape(n.inviteCode)}">Join Community</button></article>` :
+            `<article class="notification"><p><strong>${escape(n.senderId?.name || "A builder")}</strong> ${n.type === "invitation" ? "invited you to connect." : `${n.type === "accepted" ? "accepted" : "declined"} your invitation.`}</p>${n.note ? `<p class="preserve-lines">${escape(n.note)}</p>` : ""}<time>${escape(new Date(n.createdAt).toLocaleString())}</time>${n.type === "invitation" && n.invitationId?.status === "pending" ? `<button class="primary" data-response="accept" data-id="${n._id}">Accept</button><button data-response="decline" data-id="${n._id}">Decline</button>` : `<span class="muted">${escape(n.invitationId?.status || n.type)}</span>`}</article>`,
         )
         .join("")
-    : '<p class="muted">No notifications yet. Your team invitations will appear here.</p>';
+    : '<p class="muted">No notifications yet. Invitations will appear here.</p>';
 }
 async function refreshNotifications() {
   if (!state.user || polling) return;
@@ -322,16 +809,17 @@ async function refreshNotifications() {
     state.invitations = invitations;
     renderNotifications();
     renderProfiles();
+    renderViewedProfile();
     $("notification-status").textContent =
       "Updated just now · refreshes every 15 seconds";
     $("connections").innerHTML = connections.length
       ? connections
           .map(
             (c) =>
-              `<article class="card"><h3>${escape(c.name)}</h3><p>Invitation accepted. You can now plan your next build together.</p><a href="mailto:${escape(encodeURIComponent(c.email))}">${escape(c.email)}</a></article>`,
+              `<article class="card"><h3>${escape(c.name)}</h3><p>Invitation accepted. Plan your next build together.</p><a href="mailto:${escape(encodeURIComponent(c.email))}">${escape(c.email)}</a></article>`,
           )
           .join("")
-      : '<p class="muted">Your accepted invitations will appear here.</p>';
+      : '<p class="muted">Accepted connections will appear here.</p>';
   } catch (error) {
     $("notification-status").textContent =
       `Could not refresh: ${error.message}`;
@@ -349,7 +837,7 @@ async function openNotifications() {
     .slice(0, 200);
   if (ids.length)
     try {
-      await post("/notifications/read", { ids });
+      await send("/notifications/read", { ids });
       state.notifications.forEach((n) => {
         if (ids.includes(n._id)) n.read = true;
       });
@@ -359,7 +847,6 @@ async function openNotifications() {
     }
 }
 $("notifications-toggle").onclick = openNotifications;
-$("close-notifications").onclick = () => $("notifications").close();
 $("notifications").addEventListener("close", () =>
   $("notifications-toggle").setAttribute("aria-expanded", "false"),
 );
@@ -369,7 +856,7 @@ $("notification-list").onclick = async (event) => {
   const buttons = [...button.parentElement.querySelectorAll("button")];
   buttons.forEach((b) => (b.disabled = true));
   try {
-    await post(`/notifications/${button.dataset.id}/respond`, {
+    await send(`/notifications/${button.dataset.id}/respond`, {
       action: button.dataset.response,
     });
     await refreshNotifications();
@@ -383,68 +870,376 @@ $("notification-list").onclick = async (event) => {
     buttons.forEach((b) => (b.disabled = false));
   }
 };
-$("match").onclick = async () => {
-  if (!state.user) return toast("Sign in and publish your profile first.");
-  const version = ++requestVersion;
-  $("match").disabled = true;
-  $("directory-status").textContent = "Finding complementary skills…";
+function renderTeams() {
+  if ($("teams-view").hidden) return;
+  $("teams").innerHTML = state.teams.length
+    ? state.teams
+        .map((t) => {
+          const saved = state.savedTeams.some((s) => s._id === t._id);
+          return (
+            '<article class="card"><p class="eyebrow">' +
+            escape(t.event) +
+            "</p><h3>" +
+            escape(t.name) +
+            "</h3><p>" +
+            escape(t.description) +
+            "</p>" +
+            tags(t.domains || []) +
+            (t.skillsNeeded.length
+              ? "<p>Looking for</p>" + tags(t.skillsNeeded)
+              : "") +
+            "<p>" +
+            t.openSlots +
+            " open slots · " +
+            escape(t.status) +
+            "</p>" +
+            (t.eventDate ? "<time>" + escape(t.eventDate) + "</time>" : "") +
+            '<div class="card-links">' +
+            (t.owner
+              ? '<a href="/profile/' +
+                t.owner.profileId +
+                '" data-route>' +
+                escape(t.owner.fullName) +
+                " ↗</a>"
+              : "") +
+            link(t.eventUrl, "Event") +
+            "</div>" +
+            (t.ownerId === state.user?.id
+              ? '<div class="toolbar"><button data-edit-team="' +
+                t._id +
+                '">Edit / Invite Connections</button><button class="danger" data-delete-team="' +
+                t._id +
+                '">Delete</button></div>'
+              : t.status === "open"
+                ? inviteButton(t.ownerId, state)
+                : "<p>Recruitment closed</p>") +
+            '<button class="save-team" data-save-team="' +
+            t._id +
+            '" aria-pressed="' +
+            saved +
+            '">' +
+            (saved ? "Saved ✓" : "Save team") +
+            "</button></article>"
+          );
+        })
+        .join("")
+    : '<div class="empty"><h3>' +
+      (location.pathname === "/saved-teams"
+        ? "No saved teams yet."
+        : "No teams found.") +
+      '</h3><p>Explore active listings or post your own team need.</p><a href="/teams" data-route>Explore teams →</a></div>';
+}
+async function loadTeams() {
+  const version = ++teamVersion,
+    saved = location.pathname === "/saved-teams",
+    myTeams = location.pathname === "/my-teams";
+  if ((saved || myTeams) && !state.user) {
+    $("teams-status").textContent = "Sign in to see your teams.";
+    $("teams").innerHTML =
+      '<div class="empty"><button data-auth-open>Sign In</button></div>';
+    return;
+  }
+  $("teams-status").textContent = "Loading teams…";
   try {
-    const matches = await post("/match");
-    if (version !== requestVersion) return;
-    state.directoryLoaded = true;
-    state.matches = true;
-    state.profiles = matches;
-    $("directory-status").textContent =
-      `${matches.length} complementary match${matches.length === 1 ? "" : "es"}`;
-    renderProfiles();
+    const mine = myTeams || (state.user && $("team-view-filter").value === "mine");
+    let teams = await api(
+      saved
+        ? "/teams/saved"
+        : mine
+          ? "/teams/mine"
+          : "/teams?search=" +
+            encodeURIComponent($("team-search").value.trim()),
+    );
+    if ((mine || saved) && $("team-search").value.trim()) {
+      const q = $("team-search").value.trim().toLowerCase();
+      teams = teams.filter((t) =>
+        [t.name, t.event, ...t.skillsNeeded, ...t.domains]
+          .join(" ")
+          .toLowerCase()
+          .includes(q),
+      );
+    }
+    if (version !== teamVersion) return;
+    state.teams = teams;
+    if (saved) state.savedTeams = teams;
+    renderTeams();
+    $("teams-status").textContent = teams.length + " team listings";
   } catch (error) {
-    if (version === requestVersion)
-      $("directory-status").textContent = error.message;
+    if (version !== teamVersion) return;
+    $("teams-status").textContent = error.message;
+    $("teams").innerHTML =
+      '<div class="empty">Teams are unavailable. <button id="retry-teams">Try again</button></div>';
+    $("retry-teams").onclick = loadTeams;
+  }
+}
+function openTeam(team = null) {
+  if (!state.user) return openAuth(() => openTeam(team));
+  if (!state.profile) {
+    toast("Publish your profile before creating a team.");
+    return openProfile();
+  }
+  editingTeam = team;
+  $("team-form").reset();
+  void social.prepareTeam(team);
+  if (team)
+    for (const [key, value] of Object.entries(team)) {
+      const field = $("team-form").elements.namedItem(key);
+      if (field) field.value = Array.isArray(value) ? value.join(", ") : value;
+    }
+  $("team-error").textContent = "";
+  $("team-dialog").showModal();
+}
+$("create-team").onclick = () => openTeam();
+let teamTimer;
+$("team-search").oninput = () => {
+  clearTimeout(teamTimer);
+  teamTimer = setTimeout(loadTeams, 300);
+};
+$("team-view-filter").onchange = loadTeams;
+$("teams").addEventListener("click", (event) => {
+  const edit = event.target.closest("[data-edit-team]"),
+    del = event.target.closest("[data-delete-team]");
+  if (edit) openTeam(state.teams.find((t) => t._id === edit.dataset.editTeam));
+  if (del)
+    askDelete(
+      "Delete this team listing?",
+      "This removes the team from the directory. Existing connections remain.",
+      async () => {
+        await api(`/teams/${del.dataset.deleteTeam}`, { method: "DELETE" });
+        await loadTeams();
+        toast("Team deleted.");
+      },
+    );
+});
+$("team-form").onsubmit = async (event) => {
+  event.preventDefault();
+  const values = Object.fromEntries(new FormData(event.target));
+  values.openSlots = Number(values.openSlots);
+  values.domains = csv(values.domains);
+  values.skillsNeeded = csv(values.skillsNeeded);
+  values.techStack = csv(values.techStack);
+  $("save-team").disabled = true;
+  $("team-error").textContent = "";
+  try {
+    const savedTeam = await send(
+      editingTeam ? `/teams/${editingTeam._id}` : "/teams",
+      values,
+      editingTeam ? "PUT" : "POST",
+    );
+    const failedInvites = await social.inviteQueued(savedTeam);
+    $("team-dialog").close();
+    await loadTeams();
+    if (!failedInvites) toast("Team saved. Selected invitations sent.");
+  } catch (error) {
+    $("team-error").textContent = error.message;
   } finally {
-    $("match").disabled = false;
+    $("save-team").disabled = false;
   }
 };
-$("show-all").onclick = () => {
-  $("search").value = "";
-  loadProfiles();
-};
-$("search-form").onsubmit = (event) => {
-  event.preventDefault();
-  clearTimeout(searchTimer);
-  loadProfiles();
-  $("discovery").scrollIntoView({ behavior: "smooth" });
-};
-$("search").oninput = () => {
-  clearTimeout(searchTimer);
-  searchTimer = setTimeout(loadProfiles, 300);
-};
-$("signout").onclick = signOut;
+document
+  .querySelectorAll("[data-close]")
+  .forEach(
+    (button) => (button.onclick = () => $(button.dataset.close).close()),
+  );
 for (const dialog of document.querySelectorAll("dialog"))
   dialog.addEventListener("click", (event) => {
-    if (event.target === dialog) {
-      const r = dialog.getBoundingClientRect();
-      if (
-        event.clientX < r.left ||
-        event.clientX > r.right ||
-        event.clientY < r.top ||
-        event.clientY > r.bottom
-      )
-        dialog.close();
-    }
+    if (event.target !== dialog) return;
+    const r = dialog.getBoundingClientRect();
+    if (
+      event.clientX < r.left ||
+      event.clientX > r.right ||
+      event.clientY < r.top ||
+      event.clientY > r.bottom
+    )
+      dialog.close();
   });
+window.addEventListener("storage", (event) => {
+  if (event.key === "reconnect_theme") applyTheme(event.newValue || "light");
+  if (event.key === TOKEN_KEY) {
+    clearSession(false);
+    state.token = event.newValue;
+    if (state.token)
+      hydrate().catch((error) => {
+        if (error.status === 401) clearSession();
+        else toast(error.message);
+      });
+  }
+});
+const social = installSocialUI({ state, api, send, openAuth, toast, refreshNotifications, loadTeams });
 if (!matchMedia("(prefers-reduced-motion: reduce)").matches)
   initDotMatrixCanvas();
 renderAccount();
 loadProfiles();
+renderRoute();
 setupGoogle();
 if (state.token)
   hydrate().catch((error) => {
-    if (error.status === 401) signOut();
+    if (error.status === 401) clearSession();
     else toast(error.message);
   });
 setInterval(() => {
-  if (!document.hidden) refreshNotifications();
+  if (document.hidden) return;
+  refreshNotifications();
+  if (!state.matches && location.pathname === "/") loadProfiles();
+  if (location.pathname.startsWith("/profile/") && !$("profile-dialog").open)
+    refreshPublic();
+  if (
+    ["/teams", "/saved-teams", "/my-teams"].includes(location.pathname) &&
+    !$("team-dialog").open
+  )
+    loadTeams();
+  if (
+    ["/projects", "/hubs", "/calendar", "/mentorship"].includes(
+      location.pathname,
+    )
+  )
+    loadContent();
 }, 15000);
+async function refreshPublic() {
+  const id = state.viewProfile?._id;
+  if (!id) return;
+  const version = routeVersion;
+  try {
+    const profile = await api(`/profiles/${id}`);
+    if (version !== routeVersion) return;
+    state.viewProfile = profile;
+    renderViewedProfile();
+  } catch (error) {
+    if (version === routeVersion && error.status === 404) renderRoute();
+  }
+}
 document.addEventListener("visibilitychange", () => {
-  if (!document.hidden) refreshNotifications();
+  if (!document.hidden) {
+    refreshNotifications();
+    refreshPublic();
+  }
 });
+
+$("mobile-menu-toggle").onclick = () => {
+  const open = $("primary-links").classList.toggle("mobile-open");
+  $("mobile-menu-toggle").setAttribute("aria-expanded", String(open));
+};
+document.addEventListener("keydown", (e) => {
+  if (
+    (e.ctrlKey || e.metaKey) &&
+    e.key.toLowerCase() === "k" &&
+    !document.querySelector("dialog[open]")
+  ) {
+    e.preventDefault();
+    awaitHeroSearch();
+  }
+  if (e.key === "Escape") {
+
+    $("primary-links").classList.remove("mobile-open");
+    $("mobile-menu-toggle").setAttribute("aria-expanded", "false");
+    $("account-menu").open = false;
+  }
+});
+document.addEventListener("click", async (e) => {
+  if (e.target.closest("[data-auth-open]")) return openAuth();
+  if (e.target.closest("[data-refresh-content]")) return loadContent();
+  if (e.target.closest("[data-create-team]")) {
+    navigate("/teams");
+    return openTeam();
+  }
+  const college = e.target.closest("[data-college]");
+  if (college) {
+    $("filter-college").value = college.dataset.college;
+    navigate("/#discovery");
+    return loadProfiles();
+  }
+  const save = e.target.closest("[data-save-team]");
+  if (save) {
+    if (!state.user) return openAuth();
+    save.disabled = true;
+    const id = save.dataset.saveTeam,
+      saved = state.savedTeams.some((t) => t._id === id);
+    try {
+      await send("/teams/" + id + "/save", {}, saved ? "DELETE" : "POST");
+      state.savedTeams = await api("/teams/saved");
+      if (location.pathname === "/saved-teams") await loadTeams();
+      else renderTeams();
+      toast(saved ? "Team removed from saved." : "Team saved.");
+    } catch (error) {
+      toast(error.message);
+      save.disabled = false;
+    }
+  }
+
+  if (!e.target.closest("#account-menu")) $("account-menu").open = false;
+});
+refreshHealth();
+setInterval(() => {
+  if (!document.hidden) refreshHealth();
+}, 30000);
+
+$("photo-picker").onclick = () => $("photo-file").click();
+$("photo-file").onchange = async (event) => {
+  const file = event.target.files[0];
+  if (!file) return;
+  $("publish").disabled = true;
+  $("photo-picker").disabled = true;
+  $("photo-status").textContent = "Preparing photo…";
+  try {
+    const value = await compressPhoto(file);
+    $("profile-form").elements.avatar.value = value;
+    $("photo-preview").innerHTML = avatar({ avatar: value });
+    $("photo-status").textContent = "Photo ready. Publish your profile to save.";
+  } catch (error) { $("photo-status").textContent = error.message; }
+  finally {
+    event.target.value = "";
+    $("publish").disabled = false;
+    $("photo-picker").disabled = false;
+  }
+};
+
+function openCommunity() {
+  if (!state.user) return openAuth(openCommunity);
+  $("community-error").textContent = "";
+  $("community-dialog").showModal();
+}
+async function joinCommunity(code, button) {
+  if (!state.user) return openAuth(() => joinCommunity(code, button));
+  if (button) button.disabled = true;
+  try {
+    const community = await send(`/communities/${encodeURIComponent(code)}/join`);
+    $("community-invite").close();
+    $("notifications").close();
+    toast(`You joined ${community.name}.`);
+    navigate("/projects");
+    await refreshNotifications();
+  } catch (error) { toast(error.message); if (button) button.disabled = false; }
+}
+$("community-form").onsubmit = async event => {
+  event.preventDefault();
+  const values = Object.fromEntries(new FormData(event.target));
+  values.tags = csv(values.tags);
+  $("community-submit").disabled = true;
+  try {
+    const community = await send("/communities", values);
+    $("community-dialog").close();
+    event.target.reset();
+    $("community-share").innerHTML = `<p>${escape(community.name)} is ready for collaborators.</p>${shareTools(community)}`;
+    $("community-created").showModal();
+    if (location.pathname === "/projects") await loadContent();
+  } catch (error) { $("community-error").textContent = error.message; }
+  finally { $("community-submit").disabled = false; }
+};
+document.addEventListener("click", async event => {
+  if (event.target.closest("[data-create-community]")) return openCommunity();
+  const join = event.target.closest("[data-join-community]");
+  if (join) return joinCommunity(join.dataset.joinCommunity, join);
+  const copy = event.target.closest("[data-copy-community]");
+  if (copy) {
+    try {
+      await navigator.clipboard.writeText(inviteUrl(copy.dataset.copyCommunity));
+      copy.textContent = "Copied!";
+      setTimeout(() => { copy.textContent = "Copy Invite Link"; }, 2000);
+    } catch { toast("Copying is unavailable. Use Share on WhatsApp."); }
+  }
+});
+const communityInviteCode = new URLSearchParams(location.search).get("joinCommunity") || location.pathname.match(/^\/community\/join\/([^/]+)$/)?.[1];
+if (communityInviteCode) {
+  $("community-invite-join").onclick = () => joinCommunity(communityInviteCode, $("community-invite-join"));
+  $("community-invite").showModal();
+}

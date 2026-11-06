@@ -1,5 +1,5 @@
 /**
- * Kindred Canvas Dot-Matrix Hands Background Simulation
+ * Reconnect Canvas Dot-Matrix Hands Background Simulation
  * Exact math, crop tiles, dissolve shaders, and loop preserved 100% as-is.
  */
 export function initDotMatrixCanvas() {

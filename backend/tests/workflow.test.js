@@ -122,8 +122,8 @@ test("real MongoDB workflow, identity boundaries, and atomic invitations", async
   const expired = jwt.sign({}, secret, {
     subject: a.user.id,
     expiresIn: -1,
-    issuer: "talentbridge",
-    audience: "talentbridge-web",
+    issuer: "reconnect",
+    audience: "reconnect-web",
   });
   assert.equal((await request("/auth/me", { token: expired })).status, 401);
   assert.equal(
@@ -139,7 +139,7 @@ test("real MongoDB workflow, identity boundaries, and atomic invitations", async
     (
       await request("/profiles", {
         token: a.token,
-        body: { ...input("A"), skills: [] },
+        body: { ...input("A"), skills: Array(41).fill("React") },
       })
     ).status,
     400,

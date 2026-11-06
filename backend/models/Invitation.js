@@ -12,6 +12,7 @@ module.exports = mongoose.model(
       ref: "User",
       required: true,
     },
+    note: { type: String, maxlength: 1000, default: "" },
     pairKey: { type: String, required: true, unique: true },
     status: {
       type: String,
