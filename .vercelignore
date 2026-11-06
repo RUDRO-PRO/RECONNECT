@@ -1,0 +1,7 @@
+backend/.env
+backend/.env.*
+!backend/.env.example
+backend/tests
+frontend/tests
+*.png
+.git

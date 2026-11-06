@@ -1,3 +1,4 @@
+import { installReadiness, teamControls } from "./readiness.js";
 import { installSocialUI } from "./social.js";
 import { shareTools, inviteUrl } from "./communities.js";
 import { compressPhoto } from "./photo.js";
@@ -44,9 +45,11 @@ const state = {
   directoryLoaded: false,
   viewProfile: null,
   teams: [],
+  teamRequests: [],
   savedTeams: [],
   links: {},
 };
+let communitySuggestionsPending = false;
 let requestVersion = 0,
   routeVersion = 0,
   teamVersion = 0,
@@ -66,7 +69,7 @@ const csv = (value) =>
 async function api(path, options = {}) {
   const token = state.token;
   const response = await fetch(`/api${path}`, {
-    signal: AbortSignal.timeout(30000),
+    signal: AbortSignal.timeout(path === "/match" || path === "/communities/suggestions" ? 55000 : 30000),
     ...options,
     headers: {
       "Content-Type": "application/json",
@@ -100,6 +103,8 @@ function toast(message) {
   toastTimer = setTimeout(() => ($("toast").hidden = true), 4000);
 }
 function renderAccount() {
+  const quickProfile = document.querySelector('[data-mobile-action="profile"]');
+  if (quickProfile) quickProfile.textContent = state.user ? "My Profile" : "Sign In / Sign Up";
   $("account").hidden = !state.user;
   $("open-auth").hidden = !!state.user;
 
@@ -121,6 +126,8 @@ function renderAccount() {
 }
 function clearSession(persist = true) {
   social.reset();
+  readiness.reset();
+  state.teamRequests = [];
   state.token = null;
   state.user = null;
   state.profile = null;
@@ -384,12 +391,22 @@ function renderViewedProfile() {
 }
 async function loadContent() {
   const version = routeVersion,
-    path = location.pathname.startsWith("/community/join/") ? "/projects" : location.pathname;
+    path = (location.pathname.startsWith("/community/join/") || location.pathname === "/communities") ? "/projects" : location.pathname;
   $("content-view").innerHTML = '<p role="status">Loading…</p>';
   try {
     const html = await contentPage(path, { api, state, health: refreshHealth });
     if (version !== routeVersion) return;
     $("content-view").innerHTML = html;
+    if (path === "/projects" && state.user && !communitySuggestionsPending) {
+      communitySuggestionsPending = true;
+      api("/communities/suggestions").then(matches => {
+        if (version !== routeVersion || !state.user) return;
+        for (const match of matches) {
+          const button = document.querySelector(`[data-open-community="${CSS.escape(String(match.communityId))}"]`);
+          if (button && !button.parentElement.querySelector(".recommended-label")) button.insertAdjacentHTML("afterend", '<p class="eyebrow recommended-label">Recommended for you</p>');
+        }
+      }).catch(() => {}).finally(() => { communitySuggestionsPending = false; });
+    }
     const heading = $("content-view").querySelector("h1");
     if (heading) document.title = heading.textContent + " — Reconnect";
   } catch (error) {
@@ -415,18 +432,14 @@ async function refreshHealth() {
       checkedAt: new Date().toISOString(),
     };
   }
-  $("system-status").dataset.status = health.status;
+  $("system-status").dataset.status = health.status === "unavailable" ? "unavailable" : "operational";
   $("system-status-label").textContent =
-    health.status === "operational"
-      ? "All Systems Operational"
-      : health.status === "degraded"
-        ? "Core online · Limited services"
-        : "Service unavailable";
+    health.status !== "unavailable" ? "All Systems Operational" : "Temporarily unavailable";
   return health;
 }
 async function renderRoute() {
   const version = ++routeVersion,
-    path = location.pathname.startsWith("/community/join/") ? "/projects" : location.pathname;
+    path = (location.pathname.startsWith("/community/join/") || location.pathname === "/communities") ? "/projects" : location.pathname;
   const profileId = path.match(/^\/profile\/([^/]+)$/)?.[1];
   const teams = ["/teams", "/saved-teams", "/my-teams"].includes(path),
     home = ["/", "/match"].includes(path),
@@ -769,6 +782,7 @@ document.addEventListener("click", async (event) => {
     renderProfiles();
     renderViewedProfile();
     renderTeams();
+    void readiness.refreshProfile();
     toast("Invitation sent.");
   } catch (error) {
     toast(error.message);
@@ -788,7 +802,7 @@ function renderNotifications() {
   $("notification-list").innerHTML = state.notifications.length
     ? state.notifications
         .map(
-          (n) => n.type === "team_invite" ? `<article class="notification"><p>${escape(n.message)}</p>${n.status === "pending" ? `<button class="primary" data-team-response="accept" data-id="${n._id}">Join Team</button><button data-team-response="decline" data-id="${n._id}">Decline</button>` : `<span class="muted">${escape(n.status)}</span>`}</article>` : n.type === "community" ? `<article class="notification"><p>${escape(n.message)}</p><button class="primary" data-join-community="${escape(n.inviteCode)}">Join Community</button></article>` :
+          (n) => n.type === "team_join_request" ? `<article class="notification"><p>${escape(n.message)}</p>${n.status === "pending" ? `<button class="primary" data-response="accept" data-id="${n._id}">Accept</button><button data-response="decline" data-id="${n._id}">Decline</button>` : `<span class="muted">${escape(n.status)}</span>`}</article>` : n.type === "team_join_result" ? `<article class="notification"><p>${escape(n.message)}</p><a href="/my-teams" data-route>My Teams</a></article>` : n.type === "team_invite" ? `<article class="notification"><p>${escape(n.message)}</p>${n.status === "pending" ? `<button class="primary" data-team-response="accept" data-id="${n._id}">Join Team</button><button data-team-response="decline" data-id="${n._id}">Decline</button>` : `<span class="muted">${escape(n.status)}</span>`}</article>` : n.type === "community" ? `<article class="notification"><p>${escape(n.message)}</p><button class="primary" data-join-community="${escape(n.inviteCode)}">Join Community</button></article>` :
             `<article class="notification"><p><strong>${escape(n.senderId?.name || "A builder")}</strong> ${n.type === "invitation" ? "invited you to connect." : `${n.type === "accepted" ? "accepted" : "declined"} your invitation.`}</p>${n.note ? `<p class="preserve-lines">${escape(n.note)}</p>` : ""}<time>${escape(new Date(n.createdAt).toLocaleString())}</time>${n.type === "invitation" && n.invitationId?.status === "pending" ? `<button class="primary" data-response="accept" data-id="${n._id}">Accept</button><button data-response="decline" data-id="${n._id}">Decline</button>` : `<span class="muted">${escape(n.invitationId?.status || n.type)}</span>`}</article>`,
         )
         .join("")
@@ -811,7 +825,7 @@ async function refreshNotifications() {
     renderProfiles();
     renderViewedProfile();
     $("notification-status").textContent =
-      "Updated just now · refreshes every 15 seconds";
+      "";
     $("connections").innerHTML = connections.length
       ? connections
           .map(
@@ -860,6 +874,8 @@ $("notification-list").onclick = async (event) => {
       action: button.dataset.response,
     });
     await refreshNotifications();
+    if (["/teams", "/my-teams"].includes(location.pathname)) await loadTeams();
+    void readiness.refreshProfile();
     toast(
       button.dataset.response === "accept"
         ? "Invitation accepted."
@@ -881,7 +897,7 @@ function renderTeams() {
             escape(t.event) +
             "</p><h3>" +
             escape(t.name) +
-            "</h3><p>" +
+            "</h3>" + teamControls(t, state) + "<p>" +
             escape(t.description) +
             "</p>" +
             tags(t.domains || []) +
@@ -959,6 +975,8 @@ async function loadTeams() {
           .includes(q),
       );
     }
+    if (version !== teamVersion) return;
+    state.teamRequests = state.user ? await api("/team-requests") : [];
     if (version !== teamVersion) return;
     state.teams = teams;
     if (saved) state.savedTeams = teams;
@@ -1066,6 +1084,7 @@ window.addEventListener("storage", (event) => {
   }
 });
 const social = installSocialUI({ state, api, send, openAuth, toast, refreshNotifications, loadTeams });
+const readiness = installReadiness({ state, api, send, openAuth, toast, renderTeams, openNotifications, social });
 if (!matchMedia("(prefers-reduced-motion: reduce)").matches)
   initDotMatrixCanvas();
 renderAccount();

@@ -84,6 +84,56 @@ function installSocial(app, auth) {
     await Community.updateOne({ _id: c._id }, { $pull: { members: memberId } });
     res.json({ success: true });
   }));
+
+  app.get("/api/team-requests", auth, route(async (req, res) => {
+    res.set("Cache-Control", "no-store").json(await Notification.find({ senderId: req.user._id, type: "team_join_request" }).select("teamId status").lean());
+  }));
+  app.get("/api/teams/:id/roster", route(async (req, res) => {
+    const t = await Team.findById(id(req.params.id)).lean();
+    if (!t) fail(404, "Team not found.");
+    const creatorId = String(t.creatorId || t.ownerId);
+    const members = [...(t.members || [])];
+    if (!members.some(m => String(m.userId) === creatorId)) members.unshift({ userId: creatorId, role: "Lead" });
+    const [users, profiles] = await Promise.all([User.find({ _id: { $in: members.map(m => m.userId) } }).select("name avatar").lean(), Profile.find({ userId: { $in: members.map(m => m.userId) } }).select("userId headline").lean()]);
+    res.json({ name: t.name, members: members.flatMap(m => {
+      const u = users.find(u => String(u._id) === String(m.userId));
+      const p = profiles.find(p => String(p.userId) === String(m.userId));
+      return u ? [{ id: u._id, name: u.name, avatar: u.avatar, role: m.role || "Member", headline: p?.headline || "", profileId: p?._id, lead: String(u._id) === creatorId }] : [];
+    }) });
+  }));
+  app.post("/api/teams/:teamId/request-join", auth, route(async (req, res) => {
+    const t = await Team.findById(id(req.params.teamId));
+    if (!t) fail(404, "Team not found.");
+    if (t.status !== "open" || t.openSlots < 1) fail(409, "This team is not accepting new members.");
+    if (String(t.creatorId || t.ownerId) === String(req.user._id) || t.members.some(m => String(m.userId) === String(req.user._id))) bad("You are already on this team.");
+    if (!await Profile.exists({ userId: req.user._id })) bad("Publish your builder profile before requesting to join.");
+    const notice = await Notification.findOneAndUpdate({ teamId: t._id, senderId: req.user._id, recipientId: t.creatorId || t.ownerId, type: "team_join_request" }, { $setOnInsert: { status: "pending", message: `${req.user.name} would like to join ${t.name}.` } }, { upsert: true, returnDocument: "after", runValidators: true });
+    res.json({ teamId: t._id, status: notice.status });
+  }));
+  app.post("/api/notifications/:id/respond", auth, route(async (req, res, next) => {
+    id(req.params.id);
+    const existing = await Notification.findOne({ _id: req.params.id, recipientId: req.user._id, type: "team_join_request" });
+    if (!existing) return next();
+    if (!["accept", "decline"].includes(req.body.action)) bad("Choose accept or decline.");
+    await mongoose.connection.transaction(async session => {
+      const n = await Notification.findById(existing._id).session(session);
+      const t = await Team.findById(n.teamId).session(session);
+      if (!t) fail(404, "Team not found.");
+      if (String(t.creatorId || t.ownerId) !== String(req.user._id)) fail(403, "Only the team lead can respond.");
+      if (n.status !== "pending") return;
+      const accepted = req.body.action === "accept";
+      if (accepted && !t.members.some(m => String(m.userId) === String(n.senderId))) {
+        if (t.status !== "open" || t.openSlots < 1) fail(409, "This team is no longer accepting members.");
+        if (!await User.exists({ _id: n.senderId }).session(session)) fail(404, "Builder no longer available.");
+        t.members.push({ userId: n.senderId, role: "Member" }); t.openSlots -= 1;
+        if (!t.openSlots) t.status = "closed";
+        await t.save({ session });
+      }
+      n.status = accepted ? "accepted" : "declined"; n.read = true; await n.save({ session });
+      await Notification.create([{ teamId: t._id, senderId: req.user._id, recipientId: n.senderId, type: "team_join_result", status: n.status, message: accepted ? `You're now part of ${t.name}. Welcome to the team!` : `${t.name} couldn't accept your request this time.` }], { session });
+    });
+    res.json({ success: true });
+  }));
   app.get("/api/teams/:id/invites", auth, route(async (req, res) => {
     const t = await Team.findById(id(req.params.id));
     if (!t || String(t.creatorId || t.ownerId) !== String(req.user._id)) fail(403, "Only the team creator can invite connections.");
@@ -95,7 +145,7 @@ function installSocial(app, auth) {
     if (t.status !== "open") bad("This team is closed.");
     const receiver = id(req.body.userId); await connected(req.user._id, receiver);
     if (t.members.some(m => String(m.userId) === receiver)) bad("This builder is already a team member.");
-    const notice = await Notification.findOneAndUpdate({ teamId: t._id, recipientId: receiver }, { $setOnInsert: { senderId: req.user._id, type: "team_invite", status: "pending", message: `${req.user.name} invited you to join ${t.name}.` } }, { upsert: true, returnDocument: "after", runValidators: true });
+    const notice = await Notification.findOneAndUpdate({ teamId: t._id, recipientId: receiver, type: "team_invite" }, { $setOnInsert: { senderId: req.user._id, type: "team_invite", status: "pending", message: `${req.user.name} invited you to join ${t.name}.` } }, { upsert: true, returnDocument: "after", runValidators: true });
     res.json(notice);
   }));
   app.post("/api/team-invitations/:id/respond", auth, route(async (req, res) => {

@@ -1,0 +1,57 @@
+const { test } = require("node:test");
+const assert = require("node:assert/strict");
+const { MongoMemoryReplSet } = require("mongodb-memory-server");
+const mongoose = require("mongoose");
+const express = require("express");
+test("serverless handler routes API requests and reuses database initialization", async t => {
+  const database = await MongoMemoryReplSet.create({ replSet: { count: 1 } });
+  process.env.MONGODB_URI = database.getUri();
+  process.env.JWT_SECRET = "serverless-test-secret-at-least-32-characters";
+  process.env.GOOGLE_CLIENT_ID = "";
+  process.env.GEMINI_API_KEY = ""; process.env.GROQ_API_KEY = ""; process.env.MISTRAL_API_KEY = ""; process.env.OPENROUTER_API_KEY = "";
+  const handler = require("../../api/index");
+  const server = express().use((req, res, next) => Promise.resolve(handler(req, res)).catch(next)).listen(0);
+  await new Promise(resolve => server.once("listening", resolve));
+  t.after(async () => { await new Promise(resolve => server.close(resolve)); await mongoose.disconnect(); await database.stop(); });
+  const root = `http://127.0.0.1:${server.address().port}`;
+  const config = await fetch(root + "/api/index?__path=config");
+  assert.equal(config.status, 200); assert.equal((await config.json()).googleClientId, null);
+  assert.equal(mongoose.connection.readyState, 0);
+  const [profiles, health] = await Promise.all([fetch(root + "/api/index?__path=profiles&search=React"), fetch(root + "/api/index?__path=health")]);
+  assert.equal(profiles.status, 200); assert.deepEqual(await profiles.json(), []);
+  assert.equal(health.status, 200);
+  assert.equal((await fetch(root + "/api/index?__path=teams/mine")).status, 401);
+  const missing = await fetch(root + "/api/index?__path=does-not-exist");
+  assert.equal(missing.status, 404); assert.match(missing.headers.get("content-type"), /json/);
+  assert.equal((await fetch(root + "/api/profiles")).status, 200);
+  const register = await fetch(root + "/api/index.js?__path=auth/register", { method: "POST", headers: { "Content-Type": "application/json", Origin: "https://reconnect-network.vercel.app" }, body: JSON.stringify({ fullName: "Deployment Builder", email: "deploy@example.test", password: "deployment-test-password" }) });
+  assert.equal(register.status, 201); assert.equal(register.headers.get("access-control-allow-origin"), "https://reconnect-network.vercel.app");
+  const registered = await register.json(); assert.ok(registered.token);
+  const login = await fetch(root + "/api/auth/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email: "deploy@example.test", password: "deployment-test-password" }) });
+  assert.equal(login.status, 200); assert.equal((await login.json()).user.id, registered.user.id);
+});
+
+test("public config and CORS remain available while database requests are warming or failing", async t => {
+  const { createApp } = require("../server");
+  let rejectConnection, began;
+  const started = new Promise(resolve => { began = resolve; });
+  const waiting = new Promise((_, reject) => { rejectConnection = reject; });
+  const app = createApp({ clientId: "public-google-client", secret: "configuration-test-secret-at-least-32-characters", ensureDatabase: () => { began(); return waiting; } });
+  const server = app.listen(0); await new Promise(resolve => server.once("listening", resolve));
+  t.after(() => new Promise(resolve => server.close(resolve)));
+  const root = `http://127.0.0.1:${server.address().port}`;
+  const request = fetch(root + "/api/profiles"); await started;
+  const config = await fetch(root + "/api/config", { signal: AbortSignal.timeout(2000) });
+  assert.equal(config.status, 200); assert.equal((await config.json()).googleClientId, "public-google-client");
+  const preflight = await fetch(root + "/api/auth/login", { method: "OPTIONS", headers: { Origin: "https://reconnect-network.vercel.app", "Access-Control-Request-Method": "POST" }, signal: AbortSignal.timeout(2000) });
+  assert.equal(preflight.status, 204);
+  const error = new Error("Account service temporarily unavailable."); error.status = 503; error.publicCode = "DATABASE_CONNECTION_FAILED"; rejectConnection(error);
+  const failed = await request; assert.equal(failed.status, 503); assert.equal((await failed.json()).code, "DATABASE_CONNECTION_FAILED");
+  assert.equal((await fetch(root + "/api/config")).status, 200);
+});
+test("CORS allows local, production, custom and this project's preview origins", () => {
+  const { corsOptions } = require("../config");
+  const cors = corsOptions({ FRONTEND_ORIGIN: "https://custom.example, https://another.example", VERCEL_URL: "reconnect-network-abc-team.vercel.app", VERCEL_BRANCH_URL: "reconnect-network-git-feature-team.vercel.app" });
+  for (const origin of [undefined, "http://localhost:5173", "https://reconnect-network.vercel.app", "https://custom.example", "https://another.example", "https://reconnect-network-abc-team.vercel.app", "https://reconnect-network-git-feature-team.vercel.app"]) cors.origin(origin, (error, allowed) => { assert.equal(error, null); assert.equal(allowed, true); });
+  for (const origin of ["https://unrelated.vercel.app", "https://reconnect-network.vercel.app.evil.test", "null"]) cors.origin(origin, (_, allowed) => assert.equal(allowed, false));
+});

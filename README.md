@@ -136,3 +136,18 @@ New authenticated endpoints:
 - `POST /api/team-invitations/:id/respond` — recipient-only acceptance or decline.
 
 Restart the backend after upgrading so startup creates the message and team-notification indexes. Email authentication works even when Google OAuth is not configured.
+
+
+### Production deployment on Vercel
+
+Import this repository with the project root set to the repository root (not `frontend`). `vercel.json` installs root backend dependencies, builds Vite into `frontend/dist`, sends `/api/*` to `api/index.js`, preserves static assets, and falls back to `index.html` for SPA deep links. The API exports a handler without opening a listener; concurrent and warm invocations reuse the database initialization promise, and failed initialization can retry. `/api/config` and CORS preflight respond without waiting for MongoDB. Startup creates indexes and upgrades the old team-notification index for join-request support. MongoDB must be a replica set, such as Atlas, and reachable from the deployment.
+
+Set `MONGODB_URI` and a strong `JWT_SECRET` (at least 32 characters) in Vercel Environment Variables. Add `GOOGLE_CLIENT_ID` and SMTP settings if those sign-in/recovery features are enabled. Configure the deployed origin in Google OAuth and `FRONTEND_ORIGIN`. Never commit `backend/.env` or expose server credentials with a `VITE_` prefix. The project uses Node 22 and a 60-second API function duration. Deployments were not published as part of this change; verify the deployment URL and provider-account permissions before routing production traffic.
+
+Matching now tries Gemini, Groq, Mistral, and OpenRouter in order, then falls back to deterministic profile-based ranking. Each configured provider gets at most 12 seconds. Comma-separated key pools rotate one key per provider per request so latency remains bounded; failures immediately move to the next provider. Local matching needs no API keys. Provider responses are validated against supplied candidate IDs, and displayed explanations use only persisted skills/interests. Community recommendations use the same ranking helper and only consider communities with overlapping tags/interests. Targeted creation notifications continue to exclude unrelated builders.
+
+Team join requests are sent to the creator. Accepting atomically checks capacity, adds the applicant once, consumes an open slot, and notifies the applicant. Member rosters link to the public profile modal without exposing account emails. The footer reports core service availability without optional-integration diagnostics; a database outage still shows an unavailable state rather than a false green status.
+
+Verification includes provider-error/timeout/key-rotation tests, concurrent final-slot acceptance, serverless-handler routing, frontend rendering, and browser checks at 360px and desktop sizes. Cloud-provider calls are mocked in the automated tests; no paid/live model calls are required for verification.
+
+Deployment reference: https://vercel.com/docs/frameworks/frontend/vite

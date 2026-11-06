@@ -30,7 +30,7 @@ export function installSocialUI({ state, api, send, openAuth, toast, refreshNoti
       $("room-title").textContent = room.name;
       $("room-admin").textContent = `Created by ${room.creatorId?.name || "Admin"} · Admin`;
       $("room-members").textContent = `${room.members.length} Members`;
-      $("room-status").textContent = "Latest 200 messages · updates every 6 seconds";
+      $("room-status").textContent = "";
       feed($("room-feed"), messages, true);
       if ($("members-dialog").open) renderMembers();
     } catch (error) {
@@ -123,7 +123,7 @@ export function installSocialUI({ state, api, send, openAuth, toast, refreshNoti
     try {
       const messages = await api(`/messages/${other}`);
       if (epoch !== dmEpoch || !$("dm-dialog").open) return;
-      feed($("dm-feed"), messages, false); $("dm-status").textContent = "Latest 200 messages · updates every 6 seconds";
+      feed($("dm-feed"), messages, false); $("dm-status").textContent = "";
       await refreshConversations();
     } catch (error) { if (epoch === dmEpoch) $("dm-status").textContent = error.message; }
   }
@@ -187,7 +187,17 @@ export function installSocialUI({ state, api, send, openAuth, toast, refreshNoti
     try { await Promise.all([refreshRoom(), $("dm-dialog").open && selectedPerson ? refreshThread() : refreshConversations()]); }
     finally { refreshing = false; }
   }, 6000);
+  async function openDirect(userId) {
+    if (!state.user) return openAuth(() => openDirect(userId));
+    $("dm-dialog").showModal(); await refreshConversations();
+    const person = people.find(p => p.id === userId);
+    if (!person) { $("dm-status").textContent = "Connect with this builder to start a conversation."; return; }
+    ++dmEpoch; selectedPerson = person; $("dm-person").textContent = person.name;
+    $("dm-compose").hidden = false; $("dm-compose").reset(); $("dm-feed").replaceChildren(); renderConversations(); await refreshThread();
+  }
+  document.addEventListener("click", event => { const button = event.target.closest("[data-message]"); if (button) void openDirect(button.dataset.message); });
   return {
+    openDirect,
     prepareTeam,
     async inviteQueued(saved) {
       const failed = [];

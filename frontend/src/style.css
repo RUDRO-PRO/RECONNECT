@@ -1761,3 +1761,54 @@ kbd {
 @media (max-width: 640px) { .dm-layout { grid-template-columns: 1fr; gap: 12px; } .dm-layout > aside { border-right: 0; padding-right: 0; } #dm-conversations { max-height: 150px; } .chat-message { max-width: 95%; } .chat-dialog { padding: 18px; } }
 
 .person-row > .initial, .person-row > .profile-avatar { flex: 0 0 44px; width: 44px; height: 44px; }
+
+/* Public profiles, team rosters, and keyboard-aware mobile sheets. */
+.builder-modal { width: min(1000px, calc(100% - 32px)); }
+.builder-modal .profile-identity h1 { font-size: clamp(26px, 4vw, 38px); }
+.builder-modal .back-link { display: none; }
+.builder-modal .profile-actions [data-invite] { background: var(--accent); color: var(--on-accent); }
+.team-membership { display: flex; gap: 8px; flex-wrap: wrap; margin: 12px 0; }
+.mobile-quick-actions { display: none; }
+#system-status[data-status="operational"] .status-dot { background: #43805b; }
+body:has(dialog[open]) { overflow: hidden; }
+dialog { overscroll-behavior: contain; }
+.dialog-heading { flex-shrink: 0; }
+@media (max-width: 767px) {
+  .site-header nav { gap: 6px; padding: 0 12px; }
+  .site-header .brand { font-size: 20px; }
+  .site-header .nav-actions { flex-wrap: nowrap; min-width: 0; }
+  .site-header #account { flex-wrap: nowrap; }
+  .site-header #create-profile { display: none; }
+  .site-header .nav-links.mobile-open { position: fixed; inset: 80px 0 0; overflow-y: auto; background: var(--bg); align-items: stretch; padding: 24px; }
+  .mobile-quick-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding-top: 24px; border-top: 1px solid var(--line); margin-top: 12px; }
+  dialog[open], #notifications[open] { position: fixed; inset: auto 0; top: var(--sheet-top, 0px); width: 100%; max-width: 100%; height: var(--sheet-height, 100dvh); max-height: var(--sheet-height, 100dvh); margin: 0; border-radius: 0; padding: 16px; padding-bottom: max(16px, env(safe-area-inset-bottom)); overflow-x: hidden; }
+  dialog > .dialog-heading { position: sticky; top: -16px; z-index: 5; background: var(--surface); padding: 16px 0; border-bottom: 1px solid var(--line); }
+  .chat-dialog[open] { display: flex; flex-direction: column; overflow: hidden; }
+  .chat-dialog > .dialog-heading { position: static; padding: 0 0 12px; margin-bottom: 8px; }
+  #room-members { align-self: flex-start; }
+  #room-status:empty, #dm-status:empty { display: none; }
+  .chat-dialog .message-feed { flex: 1; min-height: 60px; height: auto; margin: 10px 0; }
+  #room-compose, #dm-compose { flex-shrink: 0; background: var(--surface); padding-top: 8px; border-top: 1px solid var(--line); }
+  #room-compose label, #dm-compose label { margin-bottom: 8px; }
+  #room-compose textarea, #dm-compose textarea { max-height: 100px; font-size: 16px; }
+  .dm-layout { display: flex; flex-direction: column; flex: 1; min-height: 0; gap: 6px; }
+  .dm-layout > aside { flex-shrink: 0; padding: 0; }
+  .dm-layout > aside label { margin-bottom: 6px; }
+  .dm-layout > section { display: flex; flex-direction: column; min-height: 0; flex: 1; }
+  .dm-layout h3 { margin: 8px 0; }
+  #dm-conversations { max-height: 105px; }
+  .profile-layout { grid-template-columns: 1fr; }
+  .builder-modal .profile-identity { padding: 20px 8px; }
+  .builder-modal .profile-cover { height: 80px; }
+  .builder-modal .profile-section { padding: 20px 12px; }
+  input, textarea, select { max-width: 100%; }
+}
+@media (max-width: 390px) {
+  .site-header .brand-icon { display: none; }
+  .site-header #avatar, .site-header #account-initial { width: 24px; height: 24px; }
+  .site-header #account-menu summary { gap: 3px; padding: 4px; }
+  .person-row { gap: 8px; }
+  .person-row button { padding: 8px; }
+}
+
+@media (max-width: 767px) { .site-header { backdrop-filter: none; } body:has(.nav-links.mobile-open) { overflow: hidden; } }

@@ -48,6 +48,7 @@ before(async () => {
     Notification.init(),
   ]);
   server = createApp({
+    matchProviders: [],
     secret,
     clientId: "test-client",
     mailer,
@@ -545,3 +546,38 @@ test("community rooms, connection notes, direct messages and team invites enforc
 });
 
 test("email-only configuration starts without a Google client ID", () => { assert.doesNotThrow(() => createApp({ secret, clientId: "" })); });
+
+test("team join requests are private, deduplicated and atomically fill the last slot", async t => {
+  // Separate rate-limit window: this workflow should not inherit the auth suite's request quota.
+  const isolated = createApp({ secret, clientId: "", matchProviders: [] }).listen(0);
+  await new Promise(resolve => isolated.once("listening", resolve));
+  t.after(() => new Promise(resolve => isolated.close(resolve)));
+  const request = async (path, { token, body, method = body ? "POST" : "GET" } = {}) => {
+    const response = await fetch(`http://127.0.0.1:${isolated.address().port}/api${path}`, { method, headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) }, ...(body ? { body: JSON.stringify(body) } : {}) });
+    return { status: response.status, data: await response.json() };
+  };
+  const register = async name => (await request("/auth/register", { body: { fullName: name, email: `${name}@join.test`, password: "secure-password" } })).data;
+  const lead = await register("lead"), first = await register("first"), second = await register("second");
+  await Profile.create([lead, first, second].map(u => ({ userId: u.user.id, fullName: u.user.name, skills: [{ name: "React" }], interests: ["Climate"] })));
+  const team = await Team.create({ ownerId: lead.user.id, creatorId: lead.user.id, name: "Last slot", event: "Hack", description: "Build", openSlots: 1, members: [{ userId: lead.user.id, role: "Lead" }] });
+  assert.equal((await request(`/teams/${team._id}/request-join`, { token: lead.token, body: {} })).status, 400);
+  for (const u of [first, first, second]) assert.equal((await request(`/teams/${team._id}/request-join`, { token: u.token, body: {} })).status, 200);
+  const notices = await Notification.find({ teamId: team._id, type: "team_join_request" }).lean();
+  assert.equal(notices.length, 2);
+  assert.equal((await request(`/notifications/${notices[0]._id}/respond`, { token: first.token, body: { action: "accept" } })).status, 404);
+  const outcomes = await Promise.all(notices.map(n => request(`/notifications/${n._id}/respond`, { token: lead.token, body: { action: "accept" } })));
+  assert.deepEqual(outcomes.map(r => r.status).sort(), [200, 409]);
+  const saved = await Team.findById(team._id);
+  assert.equal(saved.members.length, 2); assert.equal(saved.openSlots, 0);
+  assert.equal(await Notification.countDocuments({ teamId: team._id, type: "team_join_result" }), 1);
+  const roster = await request(`/teams/${team._id}/roster`);
+  assert.equal(roster.status, 200); assert.equal(roster.data.members.length, 2);
+  assert.equal(roster.data.members.filter(m => m.lead).length, 1);
+  assert.ok(roster.data.members.every(m => m.profileId && !m.email));
+  const accepted = await Notification.findOne({ teamId: team._id, type: "team_join_request", status: "accepted" });
+  assert.equal((await request(`/notifications/${accepted._id}/respond`, { token: lead.token, body: { action: "accept" } })).status, 200);
+  const communities = require("../models/Community");
+  const c = await communities.create({ name: "Climate builders", creatorId: lead.user.id, members: [lead.user.id], tags: ["React", "Climate"] });
+  const suggestions = await request("/communities/suggestions", { token: first.token });
+  assert.equal(suggestions.status, 200); assert.ok(suggestions.data.some(s => String(s.communityId) === String(c._id)));
+});

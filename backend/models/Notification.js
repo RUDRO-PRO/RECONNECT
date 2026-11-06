@@ -18,7 +18,7 @@ const schema = new mongoose.Schema({
   },
   type: {
     type: String,
-    enum: ["invitation", "accepted", "rejected", "community", "team_invite"],
+    enum: ["invitation", "accepted", "rejected", "community", "team_invite", "team_join_request", "team_join_result"],
     required: true,
   },
   teamId: { type: mongoose.Schema.Types.ObjectId, ref: "Team" },
@@ -32,5 +32,5 @@ const schema = new mongoose.Schema({
 });
 schema.index({ invitationId: 1, type: 1 }, { unique: true, partialFilterExpression: { invitationId: { $type: "objectId" } } });
 schema.index({ communityId: 1, recipientId: 1 }, { unique: true, partialFilterExpression: { communityId: { $type: "objectId" } } });
-schema.index({ teamId: 1, recipientId: 1 }, { unique: true, partialFilterExpression: { teamId: { $type: "objectId" } } });
+schema.index({ teamId: 1, recipientId: 1, senderId: 1, type: 1 }, { unique: true, partialFilterExpression: { teamId: { $type: "objectId" } } });
 module.exports = mongoose.model("Notification", schema);

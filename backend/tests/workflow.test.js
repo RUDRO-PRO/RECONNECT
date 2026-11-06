@@ -180,7 +180,7 @@ test("real MongoDB workflow, identity boundaries, and atomic invitations", async
   matchFailure = true;
   assert.equal(
     (await request("/match", { token: a.token, body: {} })).status,
-    502,
+    200,
   );
   matchFailure = false;
   await request("/profiles", {

@@ -27,7 +27,7 @@ const pages = {
       section(
         "How do I recover my account?",
         paragraph(
-          "Choose Sign In, then Forgot Password. Enter your account email and the six-digit code sent to it. Codes expire after ten minutes and can be used once. Email recovery requires the platform email service to be configured.",
+          "Choose Sign In, then Forgot Password. Enter your account email and the six-digit code sent to it. Codes expire after ten minutes and can be used once. Contact support if your recovery email does not arrive.",
         ),
       ) +
       section(
@@ -106,7 +106,7 @@ const pages = {
       section(
         "Third-party processing",
         paragraph(
-          "Google verifies Google sign-in. When you request AI matching, Gemini receives your skills, headline, interests, event domains, and eligible candidates’ corresponding profile fields and opaque IDs. Account emails are not sent to Gemini by the matchmaker. Password recovery uses the configured email provider. Images and links you add may contact their hosting providers.",
+          "Google verifies Google sign-in. When you request AI matching, a matching service may receive your skills, interests, event domains, and eligible candidates’ corresponding profile fields and opaque IDs. Account emails and photos are not sent for matching. Password recovery uses the configured email provider. Images and links you add may contact their hosting providers.",
         ),
       ) +
       section(
@@ -255,16 +255,7 @@ export async function contentPage(path, { api, state, health }) {
   }
   if (path === "/status") {
     const h = await health();
-    return `<article class="resource-page"><p class="eyebrow">LIVE PLATFORM CHECK</p><h1>System Status</h1><p>${h.status === "operational" ? "All systems configured and database operational." : h.status === "degraded" ? "Core platform online. Some integrations are not configured." : "The platform cannot currently reach its database."}</p><div class="status-list">${Object.entries(
-      h.services || {},
-    )
-      .map(
-        ([name, status]) =>
-          `<div><strong>${escape(name)}</strong><span>${escape(status)}</span></div>`,
-      )
-      .join(
-        "",
-      )}</div><p class="muted">${escape(h.note || "Unable to reach the health endpoint.")}</p><p class="muted">Last checked: ${escape(new Date(h.checkedAt || Date.now()).toLocaleString())}</p><button data-refresh-content>Refresh status</button></article>`;
+    return `<article class="resource-page"><h1>System Status</h1><p>${h.status === "unavailable" ? "We're temporarily unavailable. Please try again shortly." : "All Systems Operational"}</p><button data-refresh-content>Refresh status</button></article>`;
   }
   return '<article class="resource-page"><h1>Page not found</h1><p><a href="/" data-route>Return to Reconnect →</a></p></article>';
 }

@@ -62,7 +62,7 @@ test("accepted and incoming connections render actionable state without fabricat
       { senderId: "viewer", receiverId: "owner", status: "accepted" },
     ],
   });
-  assert.match(accepted, /disabled>Connected/);
+  assert.match(accepted, /data-message="owner">Message/);
   const incoming = profileCard(profile, {
     user: { id: "viewer" },
     invitations: [
@@ -94,4 +94,13 @@ test("community cards escape content and share the same encoded invite URL", asy
     assert.ok(html.includes("https://wa.me/?text="));
     assert.ok(decodeURIComponent(html).includes("https://reconnect.test/?joinCommunity=abcdefghijkl"));
   } finally { delete globalThis.window; }
+});
+
+test("team controls distinguish membership, pending requests, and closed teams", async () => {
+  const { teamControls } = await import("../src/readiness.js");
+  const team = { _id: "t", creatorId: "lead", status: "open", members: [{ userId: "lead" }] };
+  assert.ok(teamControls(team, { user: { id: "lead" } }).includes("Joined ✓"));
+  assert.ok(teamControls(team, { user: { id: "other" }, teamRequests: [{ teamId: "t", status: "pending" }] }).includes("Request Sent ✓"));
+  assert.ok(teamControls(team, { user: null }).includes("Request to Join"));
+  assert.ok(teamControls({ ...team, status: "closed" }, { user: null }).includes("Team closed"));
 });

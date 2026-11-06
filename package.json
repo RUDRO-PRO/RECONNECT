@@ -8,7 +8,24 @@
     "backend:dev": "npm --prefix backend run dev",
     "frontend:install": "npm --prefix frontend install",
     "frontend:dev": "npm --prefix frontend run dev",
-    "frontend:build": "npm --prefix frontend run build"
+    "frontend:build": "npm --prefix frontend run build",
+    "build": "cd frontend && npm install --include=dev && npm run build",
+    "start": "node backend/server.js"
+  },
+  "engines": {
+    "node": "22.x"
+  },
+  "private": true,
+  "dependencies": {
+    "@google/genai": "^2.32.0",
+    "bcryptjs": "^3.0.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "express-rate-limit": "^8.7.3",
+    "google-auth-library": "^11.3.3",
+    "jsonwebtoken": "^9.0.3",
+    "mongoose": "^9.12.0",
+    "nodemailer": "^10.3.1"
   }
 }
-
