@@ -1,5 +1,6 @@
 import { installReadiness, teamControls } from "./readiness.js";
 import { installSocialUI } from "./social.js";
+import { SESSION_KEY, readSession, validateSession } from "./session.js";
 import { shareTools, inviteUrl } from "./communities.js";
 import { compressPhoto } from "./photo.js";
 import { contentPage } from "./content.js";
@@ -34,10 +35,12 @@ const storage = {
     } catch {}
   },
 };
+const initialToken = storage.get(TOKEN_KEY);
+const cachedSession = readSession(storage, initialToken);
 const state = {
-  token: storage.get(TOKEN_KEY),
-  user: null,
-  profile: null,
+  token: initialToken,
+  user: cachedSession?.user || null,
+  profile: cachedSession?.profile || null,
   profiles: [],
   invitations: [],
   notifications: [],
@@ -119,6 +122,8 @@ function toast(message) {
   toastTimer = setTimeout(() => ($("toast").hidden = true), 4000);
 }
 function renderAccount() {
+  if (state.token && state.user)
+    storage.set(SESSION_KEY, JSON.stringify({ token: state.token, user: state.user, profile: state.profile }));
   const quickProfile = document.querySelector('[data-mobile-action="profile"]');
   if (quickProfile) quickProfile.textContent = state.user ? "My Profile" : "Sign In / Sign Up";
   $("account").hidden = !state.user;
@@ -152,7 +157,10 @@ function clearSession(persist = true) {
   state.savedTeams = [];
   state.teams = [];
   $("account-menu").open = false;
-  if (persist) storage.set(TOKEN_KEY, null);
+  if (persist) {
+    storage.set(TOKEN_KEY, null);
+    storage.set(SESSION_KEY, null);
+  }
   editorOwner = null;
   for (const id of [
     "notifications",
@@ -179,28 +187,34 @@ function clearSession(persist = true) {
 }
 async function hydrate() {
   const token = state.token;
-  const [user, profile] = await Promise.all([
-    api("/auth/me"),
-    api("/profiles/me"),
-  ]);
-  if (token !== state.token) return;
+  const user = await validateSession(api, () => token === state.token, clearSession);
+  if (!user || token !== state.token) return;
   state.user = user;
+  renderAccount();
+  void social.restore();
+  const profile = await api("/profiles/me");
+  if (token !== state.token) return;
   state.profile = profile;
   renderAccount();
   renderProfiles();
   renderViewedProfile();
-  state.savedTeams = await api("/teams/saved");
+  const savedTeams = await api("/teams/saved");
+  if (token !== state.token) return;
+  state.savedTeams = savedTeams;
   if (location.pathname === "/projects") void loadContent();
   if (["/teams", "/saved-teams", "/my-teams"].includes(location.pathname)) await loadTeams();
   await refreshNotifications();
 }
 async function signedIn(result) {
   state.token = result.token;
+  state.user = result.user;
+  state.profile = null;
+  renderAccount();
   storage.set(TOKEN_KEY, result.token);
-  await hydrate();
   $("auth-dialog").close();
   $("auth-form").elements.password.value = "";
   toast("Signed in successfully.");
+  await hydrate().catch(error => toast(error.message));
   const action = afterAuth;
   afterAuth = null;
   if (action) action();
@@ -1094,10 +1108,13 @@ window.addEventListener("storage", (event) => {
   if (event.key === TOKEN_KEY) {
     clearSession(false);
     state.token = event.newValue;
+    const cached = readSession(storage, state.token);
+    state.user = cached?.user || null;
+    state.profile = cached?.profile || null;
+    renderAccount();
     if (state.token)
       hydrate().catch((error) => {
-        if (error.status === 401) clearSession();
-        else toast(error.message);
+        toast(error.message);
       });
   }
 });
@@ -1106,13 +1123,13 @@ const readiness = installReadiness({ state, api, send, openAuth, toast, renderTe
 if (!matchMedia("(prefers-reduced-motion: reduce)").matches)
   initDotMatrixCanvas();
 renderAccount();
+void social.restore();
 loadProfiles();
 renderRoute();
 setupGoogle();
 if (state.token)
   hydrate().catch((error) => {
-    if (error.status === 401) clearSession();
-    else toast(error.message);
+    toast(error.message);
   });
 setInterval(() => {
   if (document.hidden) return;

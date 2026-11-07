@@ -90,6 +90,7 @@ test("local accounts, secure password recovery, structured profiles, and owned t
   assert.equal(a.user.email, "owner@example.test");
   assert.equal(a.user.authProvider, "local");
   const payload = jwt.verify(a.token, secret);
+  assert.equal(payload.exp - payload.iat, 30 * 24 * 60 * 60);
   assert.equal(payload.userId, a.user.id);
   assert.equal(payload.email, a.user.email);
   assert.equal(payload.authProvider, "local");
@@ -487,7 +488,18 @@ test("community matching is targeted, joins are idempotent, and My Teams include
   assert.ok(!(await request("/teams/mine", { token: unrelated.token })).data.some(t => t._id === team.data._id));
 });
 
-test("community rooms, connection notes, direct messages and team invites enforce membership", async () => {
+test("community rooms, connection notes, direct messages and team invites enforce membership", async t => {
+  // Keep this workflow's quota independent of the preceding auth/profile tests.
+  const isolated = createApp({ secret, clientId: "", matchProviders: [] }).listen(0, "127.0.0.1");
+  await new Promise(resolve => isolated.once("listening", resolve));
+  t.after(() => new Promise(resolve => isolated.close(resolve)));
+  const request = async (path, { token, body, method = body ? "POST" : "GET" } = {}) => {
+    const response = await fetch(`http://127.0.0.1:${isolated.address().port}/api${path}`, {
+      method, headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      ...(body ? { body: JSON.stringify(body) } : {}),
+    });
+    return { status: response.status, data: await response.json() };
+  };
   const Community = require("../models/Community");
   const DirectMessage = require("../models/DirectMessage");
   const CommunityMessage = require("../models/CommunityMessage");
@@ -529,6 +541,23 @@ test("community rooms, connection notes, direct messages and team invites enforc
   assert.equal((await request(`/messages/${admin.user.id}`, { token: member.token })).data[0].text, "Let's build together");
   assert.equal((await request("/messages/conversations", { token: member.token })).data.find(c => c.id === admin.user.id).unread, 0);
   assert.equal((await request(dm, { token: admin.token, body: { text: "Next steps?" } })).status, 201);
+  const reply = await request("/messages", { token: member.token, body: { recipientId: admin.user.id, text: "Ready!", clientMessageId: "optimistic-reply" } });
+  assert.equal(reply.status, 201);
+  assert.equal(reply.data.senderId, member.user.id);
+  assert.equal(reply.data.recipientId, admin.user.id);
+  assert.equal(reply.data.clientMessageId, "optimistic-reply");
+  const history = (await request(dm, { token: admin.token })).data;
+  assert.equal(history.length, 3);
+  assert.equal(history.at(-1)._id, reply.data._id);
+  const incremental = await request(`${dm}?after=${encodeURIComponent(reply.data.createdAt)}`, { token: admin.token });
+  assert.equal(incremental.status, 200);
+  assert.ok(incremental.data.some(m => m._id === reply.data._id));
+  assert.ok(incremental.data.every(m => m.createdAt >= reply.data.createdAt));
+  assert.equal((await request(`${dm}?after=bad-date`, { token: admin.token })).status, 400);
+  // Initial history must not silently discard older messages after 200 entries.
+  await DirectMessage.insertMany(Array.from({ length: 201 }, (_, i) => ({ conversationKey: [admin.user.id, member.user.id].sort().join(":"), senderId: admin.user.id, recipientId: member.user.id, text: `Earlier ${i}`, createdAt: new Date(1700000000000 + i) })));
+  assert.equal((await request(dm, { token: admin.token })).data.length, 204);
+  assert.ok((await DirectMessage.collection.indexes()).some(index => index.key.senderId === 1 && index.key.recipientId === 1 && index.key.createdAt === 1));
   assert.equal((await request(dm, { token: outsider.token })).status, 403);
   assert.equal((await request(dm, { token: admin.token, body: { text: " " } })).status, 400);
   const connection = (await request("/connections", { token: admin.token })).data.find(c => c.id === member.user.id);

@@ -10,7 +10,7 @@ const Team = require("../models/Team");
 const { text, bad } = require("../validation");
 const route = fn => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
 const fail = (status, message) => { const e = new Error(message); e.status = status; throw e; };
-const id = value => { if (!/^[a-f\d]{24}$/i.test(value || "")) bad("Invalid ID."); return value; };
+const id = value => { if (!/^[a-f\d]{24}$/i.test(value || "")) bad("Invalid ID."); return value.toLowerCase(); };
 const pair = (a, b) => [String(a), String(b)].sort().join(":");
 async function connected(a, b) {
   if (!await Invitation.exists({ pairKey: pair(a, b), status: "accepted" })) fail(403, "Connect with this builder before messaging or inviting them to a team.");
@@ -40,13 +40,22 @@ function installSocial(app, auth) {
   }));
   app.get("/api/messages/:otherUserId", route(async (req, res) => {
     const other = id(req.params.otherUserId); await connected(req.user._id, other);
-    const messages = await DirectMessage.find({ conversationKey: pair(req.user._id, other) }).sort({ createdAt: -1, _id: -1 }).limit(200).lean();
-    await DirectMessage.updateMany({ _id: { $in: messages.map(m => m._id) }, recipientId: req.user._id, read: false }, { $set: { read: true } });
-    res.set("Cache-Control", "no-store").json(messages.reverse());
+    const query = { conversationKey: pair(req.user._id, other) };
+    if (req.query.after !== undefined) {
+      const after = new Date(req.query.after);
+      if (typeof req.query.after !== "string" || !Number.isFinite(after.getTime())) bad("Invalid message timestamp.");
+      // Inclusive boundary avoids losing messages created in the same millisecond.
+      query.createdAt = { $gte: after };
+    }
+    const messages = await DirectMessage.find(query).sort({ createdAt: 1, _id: 1 }).lean();
+    const unread = messages.filter(m => String(m.recipientId) === String(req.user._id) && !m.read);
+    if (unread.length) await DirectMessage.updateMany({ _id: { $in: unread.map(m => m._id) }, recipientId: req.user._id, read: false }, { $set: { read: true } });
+    res.set("Cache-Control", "no-store").json(messages);
   }));
-  app.post("/api/messages/:otherUserId", route(async (req, res) => {
-    const other = id(req.params.otherUserId); await connected(req.user._id, other);
-    res.status(201).json(await DirectMessage.create({ conversationKey: pair(req.user._id, other), senderId: req.user._id, recipientId: other, text: text(req.body.text, "Message", 5000, true) }));
+  app.post(["/api/messages", "/api/messages/:otherUserId"], route(async (req, res) => {
+    // Both APIs use User IDs, never public Profile IDs.
+    const other = id(req.params.otherUserId || req.body.recipientId); await connected(req.user._id, other);
+    res.status(201).json(await DirectMessage.create({ conversationKey: pair(req.user._id, other), senderId: req.user._id, recipientId: other, text: text(req.body.text, "Message", 5000, true), clientMessageId: text(req.body.clientMessageId, "Client message ID", 100) || undefined }));
   }));
   app.get("/api/communities/:id", auth, route(async (req, res) => {
     const c = await room(req);

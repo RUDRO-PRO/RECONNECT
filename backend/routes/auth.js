@@ -68,7 +68,7 @@ function installAuth(app, options = {}) {
       secret,
       {
         subject: String(user._id),
-        expiresIn: "8h",
+        expiresIn: "30d",
         algorithm: "HS256",
         issuer: "reconnect",
         audience: "reconnect-web",
