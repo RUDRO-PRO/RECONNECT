@@ -66,7 +66,23 @@ const csv = (value) =>
     .split(",")
     .map((s) => s.trim())
     .filter(Boolean);
-async function api(path, options = {}) {
+const pendingReads = new Map();
+function api(path, options = {}) {
+  if ((options.method || "GET").toUpperCase() !== "GET") {
+    // A subsequent read must see the mutation rather than reuse an older request.
+    pendingReads.clear();
+    return requestApi(path, options);
+  }
+  const key = JSON.stringify([state.token, path]);
+  if (!pendingReads.has(key)) {
+    const request = requestApi(path, options).finally(() => {
+      if (pendingReads.get(key) === request) pendingReads.delete(key);
+    });
+    pendingReads.set(key, request);
+  }
+  return pendingReads.get(key);
+}
+async function requestApi(path, options = {}) {
   const token = state.token;
   const response = await fetch(`/api${path}`, {
     signal: AbortSignal.timeout(path === "/match" || path === "/communities/suggestions" ? 55000 : 30000),
@@ -163,15 +179,13 @@ function clearSession(persist = true) {
 }
 async function hydrate() {
   const token = state.token;
-  const [user, profile, invitations] = await Promise.all([
+  const [user, profile] = await Promise.all([
     api("/auth/me"),
     api("/profiles/me"),
-    api("/invitations"),
   ]);
   if (token !== state.token) return;
   state.user = user;
   state.profile = profile;
-  state.invitations = invitations;
   renderAccount();
   renderProfiles();
   renderViewedProfile();
@@ -275,6 +289,7 @@ $("auth-form").onsubmit = async (event) => {
   }
 };
 let googleLoading = false;
+let googleInitialized = false;
 async function setupGoogle() {
   if (googleLoading) return;
   googleLoading = true;
@@ -310,16 +325,19 @@ async function setupGoogle() {
         }
       }, 100);
     });
-    google.accounts.id.initialize({
-      client_id: googleClientId,
-      callback: async ({ credential }) => {
-        try {
-          await signedIn(await send("/auth/google", { credential }));
-        } catch (error) {
-          $("auth-error").textContent = error.message;
-        }
-      },
-    });
+    if (!googleInitialized) {
+      google.accounts.id.initialize({
+        client_id: googleClientId,
+        callback: async ({ credential }) => {
+          try {
+            await signedIn(await send("/auth/google", { credential }));
+          } catch (error) {
+            $("auth-error").textContent = error.message;
+          }
+        },
+      });
+      googleInitialized = true;
+    }
     $("google-signin").replaceChildren();
     google.accounts.id.renderButton($("google-signin"), {
       theme: "outline",
@@ -1113,7 +1131,7 @@ setInterval(() => {
     )
   )
     loadContent();
-}, 15000);
+}, 45000);
 async function refreshPublic() {
   const id = state.viewProfile?._id;
   if (!id) return;

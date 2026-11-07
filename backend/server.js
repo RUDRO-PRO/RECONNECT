@@ -354,13 +354,29 @@ async function dropLegacyIndex(collection, name) {
   try { await collection.dropIndex(name); }
   catch (error) { if (![26, 27].includes(error.code)) throw error; }
 }
-async function initializeDatabase() {
+const databaseCache = globalThis.__reconnectDatabase ??= { connection: null, promise: null };
+function initializeDatabase() {
+  if (databaseCache.promise) return databaseCache.promise;
+  if (databaseCache.connection && mongoose.connection.readyState === 1)
+    return Promise.resolve(databaseCache.connection);
+  databaseCache.connection = null;
+  databaseCache.promise = connectAndInitializeDatabase().then(() => {
+    databaseCache.connection = mongoose.connection;
+    return databaseCache.connection;
+  }).finally(() => {
+    // Failed attempts can be retried; concurrent callers share initialization.
+    databaseCache.promise = null;
+  });
+  return databaseCache.promise;
+}
+async function connectAndInitializeDatabase() {
   for (const key of ["MONGODB_URI", "JWT_SECRET"])
     if (!configured(process.env[key]))
       throw new Error(`Configure ${key} in backend/.env.`);
   if (process.env.JWT_SECRET.length < 32)
     throw new Error("JWT_SECRET must contain at least 32 characters.");
   await mongoose.connect(process.env.MONGODB_URI, {
+    maxPoolSize: 5,
     serverSelectionTimeoutMS: 5000,
     autoIndex: false,
   });

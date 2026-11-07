@@ -20,6 +20,14 @@ test("serverless handler routes API requests and reuses database initialization"
   const [profiles, health] = await Promise.all([fetch(root + "/api/index?__path=profiles&search=React"), fetch(root + "/api/index?__path=health")]);
   assert.equal(profiles.status, 200); assert.deepEqual(await profiles.json(), []);
   assert.equal(health.status, 200);
+  assert.equal(mongoose.connection.getClient().options.maxPoolSize, 5);
+  const { initializeDatabase } = require("../server");
+  const connection = mongoose.connection;
+  const cached = await Promise.all([initializeDatabase(), initializeDatabase()]);
+  assert.ok(cached.every(value => value === connection));
+  // Reloading the server module must still reuse the process-global cache.
+  delete require.cache[require.resolve("../server")];
+  assert.equal(await require("../server").initializeDatabase(), connection);
   assert.equal((await fetch(root + "/api/index?__path=teams/mine")).status, 401);
   const missing = await fetch(root + "/api/index?__path=does-not-exist");
   assert.equal(missing.status, 404); assert.match(missing.headers.get("content-type"), /json/);

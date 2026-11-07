@@ -145,6 +145,8 @@ function installProfiles(app, auth) {
       res.set("Cache-Control", "no-store");
       res.json(
         (
+          // Native reads already return lean POJOs. Keep this path to avoid
+          // Mongoose casting legacy string skills as embedded skill documents.
           await Profile.collection
             .find(conditions.length ? { $and: conditions } : {})
             .sort({ createdAt: -1 })

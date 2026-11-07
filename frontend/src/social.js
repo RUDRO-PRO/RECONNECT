@@ -184,9 +184,9 @@ export function installSocialUI({ state, api, send, openAuth, toast, refreshNoti
   });
   setInterval(async () => {
     if (document.hidden || !state.user || refreshing) return; refreshing = true;
-    try { await Promise.all([refreshRoom(), $("dm-dialog").open && selectedPerson ? refreshThread() : refreshConversations()]); }
+    try { await Promise.all([refreshRoom(), $("dm-dialog").open ? (selectedPerson ? refreshThread() : refreshConversations()) : undefined]); }
     finally { refreshing = false; }
-  }, 6000);
+  }, 30000);
   async function openDirect(userId) {
     if (!state.user) return openAuth(() => openDirect(userId));
     $("dm-dialog").showModal(); await refreshConversations();
