@@ -13,6 +13,7 @@ const publicUser = (u) => ({
   email: u.email,
   avatar: u.avatar,
   authProvider: u.authProvider,
+  isVerified: u.isVerified,
 });
 const route = (fn) => (req, res, next) =>
   Promise.resolve(fn(req, res, next)).catch(next);
@@ -97,6 +98,7 @@ function installAuth(app, options = {}) {
     req.user = await User.findById(payload.sub);
     if (!req.user || (req.user.tokenVersion || 0) !== payload.version)
       fail(401, "Your session has expired. Please sign in again.");
+    if (req.user.isVerified === false) fail(403, "Verify your email before continuing.");
     next();
   });
   const limiter = rateLimit({
@@ -109,27 +111,55 @@ function installAuth(app, options = {}) {
     },
   });
   app.use("/api/auth", limiter);
-  app.post(
-    "/api/auth/register",
-    route(async (req, res) => {
-      requireConfig();
-      const email = emailInput(req.body.email);
-      const name = text(req.body.fullName, "Full name", 100, true);
-      const password = passwordInput(req.body.password);
-      if (await User.exists({ email }))
-        fail(
-          409,
-          "An account with this email already exists. Sign in or reset your password.",
-        );
-      const user = await User.create({
-        email,
-        name,
-        password: await bcrypt.hash(password, 12),
-        authProvider: "local",
-      });
-      res.status(201).json(issue(user, "local"));
-    }),
-  );
+  const otpHash = otp => crypto.createHash("sha256").update(otp).digest("hex");
+  async function sendVerification(user, strict = false) {
+    if (!smtpReady) fail(503, "Verification email is not configured. Please try again later.");
+    const now = new Date(), otp = String(crypto.randomInt(100000, 999999)), hash = otpHash(otp);
+    const reserved = await User.findOneAndUpdate({ _id: user._id, isVerified: false,
+      $or: [{ verificationOtpSentAt: { $lte: new Date(now - 45000) } }, { verificationOtpSentAt: { $exists: false } }] },
+      { $set: { verificationOtpHash: hash, verificationOtpExpires: new Date(+now + 600000), verificationOtpSentAt: now, verificationOtpAttempts: 0 } });
+    if (!reserved) { if (strict) fail(429, "Please wait 45 seconds before requesting another code."); return; }
+    try {
+      const sent = await mailer.sendMail({ from: process.env.SMTP_FROM || "Reconnect <noreply@example.test>", to: user.email,
+        subject: "Verify your Reconnect email", text: `Your Reconnect verification code is ${otp}. It expires in 10 minutes.` });
+      if (sent.rejected?.length) throw new Error("Mail rejected");
+    } catch {
+      await User.updateOne({ _id: user._id, verificationOtpHash: hash }, { $unset: { verificationOtpHash: 1, verificationOtpExpires: 1, verificationOtpSentAt: 1 } });
+      fail(503, "Verification email could not be delivered. Please try again.");
+    }
+  }
+  app.post("/api/auth/register", route(async (req, res) => {
+    requireConfig();
+    const email = emailInput(req.body.email), name = text(req.body.fullName, "Full name", 100, true), password = passwordInput(req.body.password);
+    await require("../utils/emailValidator").validateEmailDomain(email, options.resolveMx);
+    if (!smtpReady) fail(503, "Verification email is not configured. Please try again later.");
+    let user = await User.findOne({ email }).select("+password");
+    if (user && user.isVerified !== false) fail(409, "An account with this email already exists. Sign in or reset your password.");
+    if (user && !await bcrypt.compare(password, user.password || "")) fail(409, "Registration is pending. Sign in with the original password or reset it first.");
+    // Preserve the original credentials on retries; an attacker must not replace them.
+    if (!user) user = await User.create({ email, name, password: await bcrypt.hash(password, 12), authProvider: "local", isVerified: false });
+    await sendVerification(user);
+    res.status(201).json({ code: "EMAIL_NOT_VERIFIED", email, message: "Check your email for a six-digit verification code.", retryAfter: 45 });
+  }));
+  app.post("/api/auth/resend-verification", route(async (req, res) => {
+    requireConfig(); const email = emailInput(req.body.email);
+    const user = await User.findOne({ email, isVerified: false });
+    if (!user) fail(400, "No pending verification found. Sign in or register first.");
+    await sendVerification(user, true);
+    res.json({ message: "A fresh verification code has been sent.", retryAfter: 45 });
+  }));
+  app.post("/api/auth/verify-email", route(async (req, res) => {
+    requireConfig(); const email = emailInput(req.body.email), otp = req.body.otp;
+    if (typeof otp !== "string" || !/^\d{6}$/.test(otp)) bad("Enter the six-digit code from your email.");
+    const user = await User.findOneAndUpdate({ email, isVerified: false, verificationOtpExpires: { $gt: new Date() }, verificationOtpAttempts: { $lt: 5 } },
+      { $inc: { verificationOtpAttempts: 1 } }, { returnDocument: "after" }).select("+verificationOtpHash");
+    const hash = otpHash(otp);
+    if (!user?.verificationOtpHash || !crypto.timingSafeEqual(Buffer.from(hash, "hex"), Buffer.from(user.verificationOtpHash, "hex"))) fail(400, "Code is invalid, expired, or has too many attempts. Request a new code.");
+    const verified = await User.findOneAndUpdate({ _id: user._id, isVerified: false, verificationOtpHash: hash, verificationOtpExpires: { $gt: new Date() } },
+      { $set: { isVerified: true }, $unset: { verificationOtpHash: 1, verificationOtpExpires: 1, verificationOtpSentAt: 1, verificationOtpAttempts: 1 } }, { returnDocument: "after" });
+    if (!verified) fail(400, "This code has already been used or expired.");
+    res.json(issue(verified, "local"));
+  }));
   // A fixed bcrypt hash keeps unknown-account login comparisons on the same work path.
   const dummyHash = bcrypt.hashSync(crypto.randomBytes(32).toString("hex"), 12);
   app.post(
@@ -145,6 +175,10 @@ function installAuth(app, options = {}) {
       );
       if (!user?.password || !matches)
         fail(401, "Email or password is incorrect.");
+      if (user.isVerified === false) {
+        await sendVerification(user);
+        return res.status(403).json({ code: "EMAIL_NOT_VERIFIED", email, message: "Verify your email to sign in.", retryAfter: 45 });
+      }
       res.json(issue(user, "local"));
     }),
   );
@@ -183,6 +217,7 @@ function installAuth(app, options = {}) {
             name: p.name || email,
             avatar: p.picture || "",
             authProvider: "google",
+            isVerified: true,
           },
         },
         { upsert: true, returnDocument: "after", runValidators: true },

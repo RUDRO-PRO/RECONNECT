@@ -33,10 +33,13 @@ test("serverless handler routes API requests and reuses database initialization"
   assert.equal(missing.status, 404); assert.match(missing.headers.get("content-type"), /json/);
   assert.equal((await fetch(root + "/api/profiles")).status, 200);
   const register = await fetch(root + "/api/index.js?__path=auth/register", { method: "POST", headers: { "Content-Type": "application/json", Origin: "https://reconnect-network.vercel.app" }, body: JSON.stringify({ fullName: "Deployment Builder", email: "deploy@example.test", password: "deployment-test-password" }) });
-  assert.equal(register.status, 201); assert.equal(register.headers.get("access-control-allow-origin"), "https://reconnect-network.vercel.app");
-  const registered = await register.json(); assert.ok(registered.token);
+  assert.equal(register.status, 400); assert.equal(register.headers.get("access-control-allow-origin"), "https://reconnect-network.vercel.app");
+  assert.equal((await register.json()).token, undefined);
+  // A pre-existing account remains usable after the verification rollout.
+  const User = require("../models/User");
+  await User.collection.insertOne({ email: "deploy@example.test", name: "Deployment Builder", authProvider: "local", password: await require("bcryptjs").hash("deployment-test-password", 12), tokenVersion: 0 });
   const login = await fetch(root + "/api/auth/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email: "deploy@example.test", password: "deployment-test-password" }) });
-  assert.equal(login.status, 200); assert.equal((await login.json()).user.id, registered.user.id);
+  assert.equal(login.status, 200); assert.ok((await login.json()).token);
 });
 
 test("public config and CORS remain available while database requests are warming or failing", async t => {

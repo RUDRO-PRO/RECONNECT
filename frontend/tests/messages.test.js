@@ -39,6 +39,7 @@ test("chat restores cached history, renders before POST resolves, and rolls back
   const cache = new Map([["reconnect_messages_me", JSON.stringify({ people: [peer], threads: { peer: [old] }, selected: "peer" })]]);
   const state = { user: { id: "me" }, token: "token" };
   const context = vm.createContext({
+    installTeamWorkspace: () => ({ reset() {} }),
     $, mergeMessages, messagePollDelay, escape: String, avatar: () => "", crypto: { randomUUID: () => "temporary" },
     localStorage: { getItem: key => cache.get(key), setItem: (key, value) => cache.set(key, value) },
     document: { hidden: false, body: { insertAdjacentHTML() {} }, addEventListener() {} },

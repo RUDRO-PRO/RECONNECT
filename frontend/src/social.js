@@ -1,7 +1,9 @@
+import { installTeamWorkspace } from "./teamWorkspace.js";
 import { $, escape, avatar } from "./ui.js";
 import { compressPhoto } from "./photo.js";
 import { mergeMessages, messagePollDelay } from "./messages.js";
 export function installSocialUI({ state, api, send, openAuth, toast, refreshNotifications, loadTeams }) {
+  const workspaceUI = installTeamWorkspace({ state, api, send, openAuth, toast });
   document.body.insertAdjacentHTML("beforeend", `
     <dialog id="room-dialog" class="chat-dialog" aria-labelledby="room-title"><div class="dialog-heading"><div><h2 id="room-title">Community</h2><p id="room-admin" class="muted"></p></div><button data-social-close="room-dialog" aria-label="Close room">×</button></div><button id="room-members">Members</button><p id="room-status" role="status"></p><div id="room-feed" class="message-feed" aria-label="Community messages"></div><form id="room-compose"><label>Message<textarea name="text" maxlength="5000" rows="2" placeholder="Share an idea with your community..."></textarea></label><div id="room-image-preview"></div><div class="toolbar"><button type="button" id="room-attach">Attach image</button><input type="file" id="room-image" accept="image/*" hidden><button type="button" id="room-remove-image" hidden>Remove image</button><button class="primary" id="room-send">Send</button></div></form></dialog>
     <dialog id="members-dialog" aria-labelledby="members-title"><div class="dialog-heading"><h2 id="members-title">Members</h2><button data-social-close="members-dialog" aria-label="Close members">×</button></div><div id="room-member-list" class="people-list"></div><h3>Invite / Add Member</h3><label>Search Reconnect builders<input id="member-search" placeholder="Search by name or skill..."></label><div id="member-results" class="people-list" role="status"></div></dialog>
@@ -283,6 +285,6 @@ export function installSocialUI({ state, api, send, openAuth, toast, refreshNoti
       return failed.length;
     },
     requestNote() { $("note-text").value = ""; $("connection-note").showModal(); return new Promise(resolve => { noteResolve = resolve; }); },
-    reset() { ++roomEpoch; ++dmEpoch; ++teamEpoch; ++searching; chatUser = null; threads = {}; cursors = {}; currentRoom = null; selectedPerson = null; people = []; teamPeople = []; queued.clear(); invited.clear(); imageUrl = ""; for (const dialog of ["room-dialog", "members-dialog", "dm-dialog", "connection-note"]) $(dialog).close(); for (const element of ["room-feed", "room-member-list", "member-results", "dm-feed", "dm-conversations", "team-connection-list"]) $(element).replaceChildren(); $("dm-compose").reset(); $("dm-compose").hidden = true; $("messages-unread").textContent = "0"; },
+    reset() { workspaceUI.reset(); ++roomEpoch; ++dmEpoch; ++teamEpoch; ++searching; chatUser = null; threads = {}; cursors = {}; currentRoom = null; selectedPerson = null; people = []; teamPeople = []; queued.clear(); invited.clear(); imageUrl = ""; for (const dialog of ["room-dialog", "members-dialog", "dm-dialog", "connection-note"]) $(dialog).close(); for (const element of ["room-feed", "room-member-list", "member-results", "dm-feed", "dm-conversations", "team-connection-list"]) $(element).replaceChildren(); $("dm-compose").reset(); $("dm-compose").hidden = true; $("messages-unread").textContent = "0"; },
   };
 }

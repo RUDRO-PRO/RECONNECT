@@ -99,7 +99,7 @@ test("community cards escape content and share the same encoded invite URL", asy
 test("team controls distinguish membership, pending requests, and closed teams", async () => {
   const { teamControls } = await import("../src/readiness.js");
   const team = { _id: "t", creatorId: "lead", status: "open", members: [{ userId: "lead" }] };
-  assert.ok(teamControls(team, { user: { id: "lead" } }).includes("Joined ✓"));
+  assert.ok(teamControls(team, { user: { id: "lead" } }).includes('data-open-workspace="t"'));
   assert.ok(teamControls(team, { user: { id: "other" }, teamRequests: [{ teamId: "t", status: "pending" }] }).includes("Request Sent ✓"));
   assert.ok(teamControls(team, { user: null }).includes("Request to Join"));
   assert.ok(teamControls({ ...team, status: "closed" }, { user: null }).includes("Team closed"));

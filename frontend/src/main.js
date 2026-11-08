@@ -109,6 +109,7 @@ async function requestApi(path, options = {}) {
       clearSession();
     const error = new Error(data.message || "Request failed.");
     error.status = response.status;
+    error.code = data.code; error.email = data.email; error.retryAfter = data.retryAfter;
     throw error;
   }
   return data;
@@ -219,17 +220,39 @@ async function signedIn(result) {
   afterAuth = null;
   if (action) action();
 }
+let verificationEmail = "", resendUntil = 0, resendTimer;
+function verificationCountdown(seconds = 45) {
+  resendUntil = Date.now() + seconds * 1000;
+  clearInterval(resendTimer);
+  const tick = () => {
+    if (authMode !== "verify" || !$("auth-dialog").open) { clearInterval(resendTimer); return; }
+    const remaining = Math.max(0, Math.ceil((resendUntil - Date.now()) / 1000));
+    $("resend-code").disabled = remaining > 0;
+    $("resend-code").textContent = remaining ? `Resend OTP in ${remaining}s` : "Resend OTP";
+    if (!remaining) clearInterval(resendTimer);
+  };
+  tick(); resendTimer = setInterval(tick, 1000);
+}
+function beginVerification(email) {
+  verificationEmail = email;
+  setAuthMode("verify");
+  const [local, domain] = email.split("@");
+  $("auth-message").textContent = `Enter the code sent to ${local.slice(0, 1)}${"•".repeat(5)}@${domain}. It expires in 10 minutes.`;
+  verificationCountdown(); $("auth-form").elements.otp.focus();
+}
 function setAuthMode(mode) {
   authMode = mode;
   const form = $("auth-form"),
     registration = mode === "register",
-    reset = mode === "reset",
+    verifying = mode === "verify",
+    reset = mode === "reset" || verifying,
     forgot = mode === "forgot";
   $("auth-title").textContent = {
     login: "Welcome back",
     register: "Join the builders",
     forgot: "Reset your password",
     reset: "Check your inbox",
+    verify: "Verify your email",
   }[mode];
   $("auth-methods").hidden = forgot || reset;
   $("auth-name-label").hidden = !registration;
@@ -238,9 +261,13 @@ function setAuthMode(mode) {
   $("auth-otp-label").hidden = !reset;
   form.elements.otp.disabled = !reset;
   form.elements.otp.required = reset;
-  $("auth-password-label").hidden = forgot;
-  form.elements.password.disabled = forgot;
-  form.elements.password.required = !forgot;
+  form.elements.email.closest("label").hidden = verifying;
+  form.elements.email.disabled = verifying;
+  form.elements.otp.value = "";
+  $("auth-otp-label").firstChild.textContent = verifying ? "6-digit verification code" : "6-digit reset code";
+  $("auth-password-label").hidden = forgot || verifying;
+  form.elements.password.disabled = forgot || verifying;
+  form.elements.password.required = !forgot && !verifying;
   form.elements.password.autocomplete =
     mode === "login" ? "current-password" : "new-password";
   form.elements.password.value = "";
@@ -249,10 +276,14 @@ function setAuthMode(mode) {
     register: "Create account",
     forgot: "Send reset code",
     reset: "Update password",
+    verify: "Verify & sign in",
   }[mode];
   $("forgot-password").hidden = forgot || reset;
   $("auth-back").hidden = !forgot && !reset;
   $("resend-code").hidden = !reset;
+  $("resend-code").disabled = false;
+  $("resend-code").textContent = "Request another code";
+  clearInterval(resendTimer);
   $("auth-error").textContent = "";
   $("auth-message").textContent = "";
   document
@@ -271,7 +302,12 @@ function openAuth(next) {
 $("open-auth").onclick = () => openAuth();
 $("forgot-password").onclick = () => setAuthMode("forgot");
 $("auth-back").onclick = () => setAuthMode("login");
-$("resend-code").onclick = () => setAuthMode("forgot");
+$("resend-code").onclick = async () => {
+  if (authMode !== "verify") return setAuthMode("forgot");
+  $("resend-code").disabled = true;
+  try { await send("/auth/resend-verification", { email: verificationEmail }); verificationCountdown(); $("auth-error").textContent = ""; }
+  catch (error) { $("auth-error").textContent = error.message; if (error.status === 429) verificationCountdown(); else $("resend-code").disabled = false; }
+};
 document
   .querySelectorAll("[data-auth-mode]")
   .forEach((b) => (b.onclick = () => setAuthMode(b.dataset.authMode)));
@@ -286,8 +322,11 @@ $("auth-form").onsubmit = async (event) => {
       register: "register",
       forgot: "forgot-password",
       reset: "reset-password",
+      verify: "verify-email",
     }[authMode];
+    if (authMode === "verify") values.email = verificationEmail;
     const result = await send(`/auth/${endpoint}`, values);
+    if (authMode === "register") { beginVerification(result.email); return; }
     if (authMode === "forgot") {
       setAuthMode("reset");
       $("auth-message").textContent = result.message;
@@ -297,7 +336,8 @@ $("auth-form").onsubmit = async (event) => {
       $("auth-message").textContent = result.message;
     } else await signedIn(result);
   } catch (error) {
-    $("auth-error").textContent = error.message;
+    if (error.code === "EMAIL_NOT_VERIFIED") beginVerification(error.email);
+    else $("auth-error").textContent = error.message;
   } finally {
     $("auth-submit").disabled = false;
   }
@@ -928,7 +968,9 @@ function renderTeams() {
             '<article class="card"><p class="eyebrow">' +
             escape(t.event) +
             "</p><h3>" +
-            escape(t.name) +
+            ([t.ownerId, t.creatorId, ...(t.members || []).map(m => m.userId)].map(String).includes(state.user?.id)
+              ? `<button class="team-workspace-title" data-open-workspace="${escape(t._id)}">${escape(t.name)}</button>`
+              : escape(t.name)) +
             "</h3>" + teamControls(t, state) + "<p>" +
             escape(t.description) +
             "</p>" +

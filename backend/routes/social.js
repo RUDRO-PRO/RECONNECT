@@ -28,6 +28,7 @@ async function connections(userId) {
   return users.map(u => { const p = profiles.find(p => String(p.userId) === String(u._id)); return { id: String(u._id), name: u.name, email: u.email, avatar: u.avatar, headline: p?.headline || "", skills: p?.skills || [] }; });
 }
 function installSocial(app, auth) {
+  require("./teamWorkspace").installTeamWorkspace(app, auth);
   app.use(["/api/messages", "/api/connections"], auth);
   app.get("/api/connections", route(async (req, res) => res.json(await connections(req.user._id))));
   app.get("/api/messages/conversations", route(async (req, res) => {

@@ -3,6 +3,11 @@ module.exports = mongoose.model(
   "Team",
   new mongoose.Schema(
     {
+      projectState: { type: String, enum: ['Ideation', 'Architecture & Design', 'Building MVP', 'Testing & Polish', 'Pitch Ready'], default: 'Ideation' },
+      progressPercent: { type: Number, min: 0, max: 100, default: 0 },
+      currentSprintGoal: { type: String, maxlength: 1000, default: '' },
+      milestones: { type: [{ title: { type: String, maxlength: 200 }, completed: { type: Boolean, default: false }, assigneeName: { type: String, maxlength: 100 }, updatedAt: { type: Date, default: Date.now } }], default: [], select: false },
+      assets: { type: [{ title: String, caption: String, imageUrl: String, uploadedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }, uploadedByName: String, createdAt: { type: Date, default: Date.now } }], default: [], select: false },
       creatorId: { type: mongoose.Schema.Types.ObjectId, ref: "User", index: true },
       hackathonName: String,
       neededRoles: { type: [String], default: [] },

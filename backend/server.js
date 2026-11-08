@@ -380,6 +380,7 @@ async function connectAndInitializeDatabase() {
     serverSelectionTimeoutMS: 5000,
     autoIndex: false,
   });
+  await User.updateMany({ $or: [{ isVerified: { $exists: false } }, { authProvider: "google" }] }, { $set: { isVerified: true } });
   const hello = await mongoose.connection.db.admin().command({ hello: 1 });
   if (!hello.setName && hello.msg !== "isdbgrid")
     throw new Error(
@@ -409,6 +410,7 @@ async function connectAndInitializeDatabase() {
     require("./models/Community").createIndexes(),
     require("./models/CommunityMessage").createIndexes(),
     require("./models/DirectMessage").createIndexes(),
+    require("./models/TeamMessage").createIndexes(),
     Team.createIndexes(),
   ]);
 }

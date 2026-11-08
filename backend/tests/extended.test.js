@@ -35,7 +35,16 @@ async function request(
     },
     ...(body ? { body: JSON.stringify(body) } : {}),
   });
-  return { status: r.status, data: await r.json() };
+  const result = { status: r.status, data: await r.json() };
+  if (path === "/auth/register" && result.status === 201) {
+    assert.equal(result.data.token, undefined);
+    const sentIndex = messages.findLastIndex(m => m.to === result.data.email && m.subject.includes("Verify"));
+    const [sent] = messages.splice(sentIndex, 1);
+    const verified = await request("/auth/verify-email", { body: { email: result.data.email, otp: sent.text.match(/\b\d{6}\b/)[0] } });
+    assert.equal(verified.status, 200);
+    return { status: 201, data: verified.data };
+  }
+  return result;
 }
 before(async () => {
   replica = await MongoMemoryReplSet.create({ replSet: { count: 1 } });
@@ -52,6 +61,7 @@ before(async () => {
     secret,
     clientId: "test-client",
     mailer,
+    resolveMx: async () => [{ exchange: "mail.example.test" }],
     googleClient: {
       async verifyIdToken() {
         return {
@@ -490,7 +500,7 @@ test("community matching is targeted, joins are idempotent, and My Teams include
 
 test("community rooms, connection notes, direct messages and team invites enforce membership", async t => {
   // Keep this workflow's quota independent of the preceding auth/profile tests.
-  const isolated = createApp({ secret, clientId: "", matchProviders: [] }).listen(0, "127.0.0.1");
+  const isolated = createApp({ secret, clientId: "", matchProviders: [], mailer, resolveMx: async () => [{ exchange: "mx.example.test" }] }).listen(0, "127.0.0.1");
   await new Promise(resolve => isolated.once("listening", resolve));
   t.after(() => new Promise(resolve => isolated.close(resolve)));
   const request = async (path, { token, body, method = body ? "POST" : "GET" } = {}) => {
@@ -498,7 +508,14 @@ test("community rooms, connection notes, direct messages and team invites enforc
       method, headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
       ...(body ? { body: JSON.stringify(body) } : {}),
     });
-    return { status: response.status, data: await response.json() };
+    const result = { status: response.status, data: await response.json() };
+    if (path === "/auth/register" && result.status === 201) {
+      const sent = messages.findLast(m => m.to === result.data.email && m.subject.includes("Verify"));
+      const verified = await request("/auth/verify-email", { body: { email: result.data.email, otp: sent.text.match(/\b\d{6}\b/)[0] } });
+      assert.equal(verified.status, 200);
+      return { status: 201, data: verified.data };
+    }
+    return result;
   };
   const Community = require("../models/Community");
   const DirectMessage = require("../models/DirectMessage");
@@ -578,12 +595,19 @@ test("email-only configuration starts without a Google client ID", () => { asser
 
 test("team join requests are private, deduplicated and atomically fill the last slot", async t => {
   // Separate rate-limit window: this workflow should not inherit the auth suite's request quota.
-  const isolated = createApp({ secret, clientId: "", matchProviders: [] }).listen(0);
+  const isolated = createApp({ secret, clientId: "", matchProviders: [], mailer, resolveMx: async () => [{ exchange: "mx.example.test" }] }).listen(0);
   await new Promise(resolve => isolated.once("listening", resolve));
   t.after(() => new Promise(resolve => isolated.close(resolve)));
   const request = async (path, { token, body, method = body ? "POST" : "GET" } = {}) => {
     const response = await fetch(`http://127.0.0.1:${isolated.address().port}/api${path}`, { method, headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) }, ...(body ? { body: JSON.stringify(body) } : {}) });
-    return { status: response.status, data: await response.json() };
+    const result = { status: response.status, data: await response.json() };
+    if (path === "/auth/register" && result.status === 201) {
+      const sent = messages.findLast(m => m.to === result.data.email && m.subject.includes("Verify"));
+      const verified = await request("/auth/verify-email", { body: { email: result.data.email, otp: sent.text.match(/\b\d{6}\b/)[0] } });
+      assert.equal(verified.status, 200);
+      return { status: 201, data: verified.data };
+    }
+    return result;
   };
   const register = async name => (await request("/auth/register", { body: { fullName: name, email: `${name}@join.test`, password: "secure-password" } })).data;
   const lead = await register("lead"), first = await register("first"), second = await register("second");

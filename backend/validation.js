@@ -45,10 +45,7 @@ function url(value, label) {
   return result;
 }
 function emailInput(value) {
-  const email = text(value, "Email", 254, true).toLowerCase();
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
-    bad("Enter a valid email address.");
-  return email;
+  return require("./utils/emailValidator").normalizeEmail(value);
 }
 function passwordInput(value) {
   if (
