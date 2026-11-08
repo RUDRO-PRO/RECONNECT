@@ -3,7 +3,7 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const nodemailer = require("nodemailer");
 const { OAuth2Client } = require("google-auth-library");
-const { rateLimit } = require("express-rate-limit");
+const { rateLimit, ipKeyGenerator } = require("express-rate-limit");
 const User = require("../models/User");
 const { emailInput, passwordInput, text, bad } = require("../validation");
 const configured = (value) => Boolean(value && !/your_|<|>/.test(value));
@@ -11,7 +11,7 @@ const publicUser = (u) => ({
   id: String(u._id),
   name: u.name,
   email: u.email,
-  avatar: u.avatar,
+  avatar: u.avatar ?? u.thumbnail ?? "",
   authProvider: u.authProvider,
   isVerified: u.isVerified,
 });
@@ -95,7 +95,8 @@ function installAuth(app, options = {}) {
     } catch {
       fail(401, "Please sign in to continue.");
     }
-    req.user = await User.findById(payload.sub);
+    req.user = await User.findById(payload.sub).select("name email thumbnail authProvider isVerified tokenVersion").lean();
+    if (req.user && (req.user.isVerified === undefined || req.user.authProvider === "google")) req.user.isVerified = true;
     if (!req.user || (req.user.tokenVersion || 0) !== payload.version)
       fail(401, "Your session has expired. Please sign in again.");
     if (req.user.isVerified === false) fail(403, "Verify your email before continuing.");
@@ -104,6 +105,11 @@ function installAuth(app, options = {}) {
   const limiter = rateLimit({
     windowMs: 15 * 60000,
     limit: 40,
+    skip: req => req.method === "GET",
+    keyGenerator: req => {
+      const email = typeof req.body.email === 'string' ? req.body.email.trim().toLowerCase() : '';
+      return `${ipKeyGenerator(req.ip)}:${crypto.createHash('sha256').update(email).digest('hex').slice(0, 16)}`;
+    },
     standardHeaders: "draft-7",
     legacyHeaders: false,
     message: {
@@ -161,7 +167,7 @@ function installAuth(app, options = {}) {
     res.json(issue(verified, "local"));
   }));
   // A fixed bcrypt hash keeps unknown-account login comparisons on the same work path.
-  const dummyHash = bcrypt.hashSync(crypto.randomBytes(32).toString("hex"), 12);
+  const dummyHash = "$2b$12$C6UzMDM.H6dfI/f/IKcEe.7kT5W3GxFP3EoMXIQh6pE9JQ8B7KxQe";
   app.post(
     "/api/auth/login",
     route(async (req, res) => {
@@ -216,6 +222,7 @@ function installAuth(app, options = {}) {
             email,
             name: p.name || email,
             avatar: p.picture || "",
+            thumbnail: p.picture || "",
             authProvider: "google",
             isVerified: true,
           },

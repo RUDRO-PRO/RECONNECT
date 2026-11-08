@@ -1,3 +1,4 @@
+const { messagePage } = require("../utils/pagination");
 const Team = require('../models/Team');
 const TeamMessage = require('../models/TeamMessage');
 const User = require('../models/User');
@@ -7,7 +8,7 @@ const fail = (status, message) => { const e = new Error(message); e.status = sta
 const validId = value => { if (typeof value !== 'string' || !/^[a-f\d]{24}$/i.test(value)) bad('Invalid ID.'); return value; };
 const states = ['Ideation', 'Architecture & Design', 'Building MVP', 'Testing & Polish', 'Pitch Ready'];
 function assetUrl(value) {
-  const result = text(value, 'Attachment', 1200000);
+  const result = text(value, 'Attachment', 120000);
   if (result.startsWith('data:')) {
     if (!/^data:image\/(?:png|jpeg|webp|gif);base64,[A-Za-z0-9+/]+={0,2}$/.test(result)) bad('Choose a PNG, JPEG, WebP or GIF image.');
     return result;
@@ -15,28 +16,34 @@ function assetUrl(value) {
   return url(result, 'Asset URL');
 }
 function memberFilter(req) { return { _id: validId(req.params.teamId), $or: [{ ownerId: req.user._id }, { creatorId: req.user._id }, { 'members.userId': req.user._id }] }; }
-async function member(req) {
-  const team = await Team.findOne(memberFilter(req)).select('+milestones +assets').lean();
+async function member(req, full = false) {
+  const team = await Team.findOne(memberFilter(req)).select(full ? 'name event hackathonName ownerId creatorId members projectState progressPercent currentSprintGoal milestones assets._id assets.title assets.caption assets.uploadedBy assets.uploadedByName assets.createdAt' : '_id').lean();
   if (!team) fail(403, 'Only team members can access this workspace.');
   return team;
 }
 function installTeamWorkspace(app, auth) {
   app.get('/api/teams/:teamId/workspace', auth, route(async (req, res) => {
-    const team = await member(req);
+    const team = await member(req, true);
     const members = [...(team.members || [])];
     for (const lead of [team.ownerId, team.creatorId].filter(Boolean)) if (!members.some(m => String(m.userId) === String(lead))) members.unshift({ userId: lead, role: 'Lead' });
     const [users, messages] = await Promise.all([
-      User.find({ _id: { $in: members.map(m => m.userId) } }).select('name avatar').lean(),
-      TeamMessage.find({ teamId: team._id }).sort({ createdAt: -1, _id: -1 }).limit(200).lean(),
+      User.find({ _id: { $in: members.map(m => m.userId) } }).select('name thumbnail').lean(),
+      TeamMessage.find({ teamId: team._id }).sort({ createdAt: -1, _id: -1 }).limit(30).select("-senderAvatar").lean(),
     ]);
     res.set('Cache-Control', 'no-store').json({ ...team, projectState: team.projectState || states[0], progressPercent: team.progressPercent || 0,
-      members: members.map(m => ({ ...m, ...users.find(u => String(u._id) === String(m.userId)) })), messages: messages.reverse() });
+      members: members.map(m => ({ ...m, ...users.find(u => String(u._id) === String(m.userId)), avatar: users.find(u => String(u._id) === String(m.userId))?.thumbnail || "" })), messages: messages.reverse() });
+  }));
+  app.get('/api/teams/:teamId/messages', auth, route(async (req, res) => {
+    await member(req);
+    const pagination = messagePage(req.query);
+    const messages = await TeamMessage.find({ teamId: req.params.teamId, ...pagination.filter }).select('-senderAvatar').sort(pagination.sort).skip(pagination.skip).limit(pagination.limit).lean();
+    res.json(pagination.reverse ? messages.reverse() : messages);
   }));
   app.post('/api/teams/:teamId/messages', auth, route(async (req, res) => {
     await member(req);
     const message = text(req.body.text, 'Message', 5000), attachmentUrl = assetUrl(req.body.attachmentUrl);
     if (!message && !attachmentUrl) bad('Write a message or attach an image.');
-    const saved = await TeamMessage.create({ teamId: req.params.teamId, senderId: req.user._id, senderName: req.user.name, senderAvatar: req.user.avatar,
+    const saved = await TeamMessage.create({ teamId: req.params.teamId, senderId: req.user._id, senderName: req.user.name,
       text: message, attachmentUrl, clientMessageId: text(req.body.clientMessageId, 'Client message ID', 100) });
     res.status(201).json(saved);
   }));
@@ -62,6 +69,12 @@ function installTeamWorkspace(app, auth) {
     const result = await Team.updateOne(filter, update, { runValidators: true });
     if (!result.matchedCount) fail(409, 'Milestone unavailable or task limit reached. Refresh the workspace.');
     res.json({ success: true });
+  }));
+  app.get('/api/teams/:teamId/assets/:assetId', auth, route(async (req, res) => {
+    await member(req); validId(req.params.assetId);
+    const team = await Team.findOne({ ...memberFilter(req), 'assets._id': req.params.assetId }).select({ 'assets.$': 1 }).lean();
+    if (!team?.assets?.length) fail(404, 'Asset not found.');
+    res.json(team.assets[0]);
   }));
   app.post('/api/teams/:teamId/assets', auth, route(async (req, res) => {
     await member(req);

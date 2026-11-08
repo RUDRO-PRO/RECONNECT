@@ -1,8 +1,10 @@
+import { createApiClient } from "./apiClient.js";
+import { createPoller, debounce } from "./poller.js";
 import { installReadiness, teamControls } from "./readiness.js";
 import { installSocialUI } from "./social.js";
 import { SESSION_KEY, readSession, validateSession } from "./session.js";
 import { shareTools, inviteUrl } from "./communities.js";
-import { compressPhoto } from "./photo.js";
+import { compressPhoto, compressStoredPhoto } from "./photo.js";
 import { contentPage } from "./content.js";
 import "./style.css";
 import { initDotMatrixCanvas } from "./canvas.js";
@@ -69,22 +71,8 @@ const csv = (value) =>
     .split(",")
     .map((s) => s.trim())
     .filter(Boolean);
-const pendingReads = new Map();
-function api(path, options = {}) {
-  if ((options.method || "GET").toUpperCase() !== "GET") {
-    // A subsequent read must see the mutation rather than reuse an older request.
-    pendingReads.clear();
-    return requestApi(path, options);
-  }
-  const key = JSON.stringify([state.token, path]);
-  if (!pendingReads.has(key)) {
-    const request = requestApi(path, options).finally(() => {
-      if (pendingReads.get(key) === request) pendingReads.delete(key);
-    });
-    pendingReads.set(key, request);
-  }
-  return pendingReads.get(key);
-}
+const api = createApiClient(requestApi, () => state.token);
+let adaptivePoller = null;
 async function requestApi(path, options = {}) {
   const token = state.token;
   const response = await fetch(`/api${path}`, {
@@ -92,7 +80,7 @@ async function requestApi(path, options = {}) {
     ...options,
     headers: {
       "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(!/^\/(?:health|config|projects|colleges|mentors|profiles(?:\?|$)|teams(?:\?|$))/.test(path) && token ? { Authorization: `Bearer ${token}` } : {}),
     },
   });
   const data = await response.json().catch(() => ({
@@ -147,6 +135,7 @@ function renderAccount() {
     : "Create Profile";
 }
 function clearSession(persist = true) {
+  api.clear();
   social.reset();
   readiness.reset();
   state.teamRequests = [];
@@ -191,6 +180,7 @@ async function hydrate() {
   const user = await validateSession(api, () => token === state.token, clearSession);
   if (!user || token !== state.token) return;
   state.user = user;
+  adaptivePoller?.wake();
   renderAccount();
   void social.restore();
   const profile = await api("/profiles/me");
@@ -454,6 +444,7 @@ $("theme-toggle").onclick = async (event) => {
   }
 };
 function navigate(url) {
+  state.contentPageNumber = 1;
   history.pushState({}, "", url);
   renderRoute();
 }
@@ -466,9 +457,11 @@ async function loadContent() {
     path = (location.pathname.startsWith("/community/join/") || location.pathname === "/communities") ? "/projects" : location.pathname;
   $("content-view").innerHTML = '<p role="status">Loading…</p>';
   try {
-    const html = await contentPage(path, { api, state, health: refreshHealth });
+    const paged = ['/projects', '/hubs', '/calendar', '/mentorship'].includes(path);
+    const contentApi = endpoint => api(`${endpoint}${endpoint.includes('?') ? '&' : '?'}page=${state.contentPageNumber || 1}`);
+    const html = await contentPage(path, { api: paged ? contentApi : api, state, health: refreshHealth });
     if (version !== routeVersion) return;
-    $("content-view").innerHTML = html;
+    $('content-view').innerHTML = html + (paged ? `<nav class="pagination" aria-label="Results pages"><button data-content-page="-1" ${(state.contentPageNumber || 1) === 1 ? 'disabled' : ''}>Previous</button><span>Page ${state.contentPageNumber || 1}</span><button data-content-page="1">Next</button></nav>` : '');
     if (path === "/projects" && state.user && !communitySuggestionsPending) {
       communitySuggestionsPending = true;
       api("/communities/suggestions").then(matches => {
@@ -492,10 +485,7 @@ async function loadContent() {
 async function refreshHealth() {
   let health;
   try {
-    const response = await fetch("/api/health", {
-      signal: AbortSignal.timeout(5000),
-    });
-    health = await response.json();
+    health = await api("/health");
     if (!health.status) throw Error("Unsupported health response");
   } catch {
     health = {
@@ -566,7 +556,7 @@ async function renderRoute() {
       $("team-view-filter").closest("label").hidden =
         ["/my-teams", "/saved-teams"].includes(path) || !state.user;
       await loadTeams();
-    } else if (location.hash === "#discovery") $("discovery").scrollIntoView();
+    } else { if (!state.directoryLoaded) await loadProfiles(); if (location.hash === "#discovery") $("discovery").scrollIntoView(); }
   }
   if (!location.hash) window.scrollTo(0, 0);
 }
@@ -602,11 +592,17 @@ function renderProfiles() {
   $("profiles").innerHTML =
     `<div class="empty"><h3>${state.matches ? "No complementary builders found yet." : filtered ? "No builders match these filters." : "No builders registered yet."}</h3><p>${state.matches ? "Check back as more builders join." : filtered ? "Try broader filters or explore all builders." : "Be the first to publish a profile and let your work speak."}</p><button data-edit-profile>Create Profile ↗</button></div>`;
 }
-async function loadProfiles() {
+let profilePage = 1;
+$('profiles').insertAdjacentHTML('afterend', '<button id="profiles-more" hidden>Load more builders</button>');
+$('profiles-more').onclick = () => loadProfiles(true);
+async function loadProfiles(append = false) {
+  append = append === true;
+  const nextPage = append ? profilePage + 1 : 1;
   const version = ++requestVersion;
   state.matches = false;
   $("directory-status").textContent = "Loading builders…";
   const query = new URLSearchParams({
+    page: String(nextPage),
     search: $("search").value.trim(),
     skill: $("filter-skill").value.trim(),
     college: $("filter-college").value.trim(),
@@ -616,11 +612,12 @@ async function loadProfiles() {
   try {
     const profiles = await api(`/profiles?${query}`);
     if (version !== requestVersion) return;
-    state.profiles = profiles;
+    state.profiles = append ? [...state.profiles, ...profiles] : profiles;
+    profilePage = nextPage; $("profiles-more").hidden = profiles.length < 30;
     state.directoryLoaded = true;
     renderProfiles();
     $("directory-status").textContent =
-      `${profiles.length} builder${profiles.length === 1 ? "" : "s"}`;
+      `${state.profiles.length} builders loaded`;
   } catch (error) {
     if (version !== requestVersion) return;
     state.directoryLoaded = false;
@@ -639,7 +636,7 @@ function queueSearch(source) {
 }
 for (const id of ["search", "filter-skill", "filter-college"])
   $(id).oninput = () => queueSearch(id);
-$("filter-available").onchange = () => loadProfiles();
+$("filter-available").onchange = debounce(() => loadProfiles());
 $("search-form").onsubmit = (e) => {
   e.preventDefault();
   clearTimeout(searchTimer);
@@ -670,6 +667,7 @@ async function match() {
   try {
     const matches = await send("/match");
     if (version !== requestVersion) return;
+    $("profiles-more").hidden = true;
     state.matches = true;
     state.profiles = matches;
     state.directoryLoaded = true;
@@ -788,6 +786,7 @@ $("profile-form").onsubmit = async (event) => {
   $("publish").disabled = true;
   $("profile-error").textContent = "";
   try {
+    values.avatar = await compressStoredPhoto(values.avatar);
     state.profile = await send("/profiles", values);
     editorOwner = null;
     state.user.avatar = state.profile.avatar;
@@ -865,8 +864,25 @@ document.addEventListener("click", async (event) => {
     }
   }
 });
+let notificationPage = 1;
+$('notification-list').insertAdjacentHTML('afterend', '<button id="notifications-more" hidden>Load older notifications</button>');
+$('notifications-more').onclick = async () => {
+  const button = $('notifications-more'), token = state.token; button.disabled = true;
+  try {
+    const next = await api(`/notifications?page=${notificationPage + 1}`);
+    if (token !== state.token) return;
+    notificationPage++; state.notifications = [...new Map([...state.notifications, ...next].map(n => [n._id, n])).values()];
+    const unread = next.filter(n => !n.read).map(n => n._id);
+    if (unread.length) {
+      await send('/notifications/read', { ids: unread }); if (token !== state.token) return;
+      state.notifications.forEach(n => { if (unread.includes(n._id)) n.read = true; });
+      state.unreadNotifications = Math.max(0, (state.unreadNotifications || 0) - unread.length);
+    }
+    renderNotifications(); button.hidden = next.length < 30;
+  } catch (error) { toast(error.message); } finally { button.disabled = false; }
+};
 function renderNotifications() {
-  $("unread").textContent = state.notifications.filter((n) => !n.read).length;
+  $("unread").textContent = state.unreadNotifications ?? state.notifications.filter((n) => !n.read).length;
   $("notifications-toggle").setAttribute(
     "aria-label",
     `Notifications: ${$("unread").textContent} unread`,
@@ -885,13 +901,11 @@ async function refreshNotifications() {
   polling = true;
   const token = state.token;
   try {
-    const [notifications, invitations, connections] = await Promise.all([
-      api("/notifications"),
-      api("/invitations"),
-      api("/connections"),
-    ]);
+    const { notifications, invitations, connections, ...summary } = await api('/social/sync');
     if (token !== state.token) return;
-    state.notifications = notifications;
+    state.unreadNotifications = summary.unreadNotifications;
+    social.acceptSync(summary);
+    state.notifications = notifications; notificationPage = 1; $("notifications-more").hidden = notifications.length < 30;
     state.invitations = invitations;
     renderNotifications();
     renderProfiles();
@@ -924,6 +938,7 @@ async function openNotifications() {
   if (ids.length)
     try {
       await send("/notifications/read", { ids });
+      state.unreadNotifications = Math.max(0, (state.unreadNotifications || 0) - ids.length);
       state.notifications.forEach((n) => {
         if (ids.includes(n._id)) n.read = true;
       });
@@ -1019,7 +1034,12 @@ function renderTeams() {
         : "No teams found.") +
       '</h3><p>Explore active listings or post your own team need.</p><a href="/teams" data-route>Explore teams →</a></div>';
 }
-async function loadTeams() {
+let listingPage = 1;
+$('teams').insertAdjacentHTML('afterend', '<button id="teams-more" hidden>Load more teams</button>');
+$('teams-more').onclick = () => loadTeams(true);
+async function loadTeams(append = false) {
+  append = append === true;
+  const nextPage = append ? listingPage + 1 : 1;
   const version = ++teamVersion,
     saved = location.pathname === "/saved-teams",
     myTeams = location.pathname === "/my-teams";
@@ -1038,7 +1058,7 @@ async function loadTeams() {
         : mine
           ? "/teams/mine"
           : "/teams?search=" +
-            encodeURIComponent($("team-search").value.trim()),
+            encodeURIComponent($("team-search").value.trim()) + `&page=${nextPage}`,
     );
     if ((mine || saved) && $("team-search").value.trim()) {
       const q = $("team-search").value.trim().toLowerCase();
@@ -1052,7 +1072,8 @@ async function loadTeams() {
     if (version !== teamVersion) return;
     state.teamRequests = state.user ? await api("/team-requests") : [];
     if (version !== teamVersion) return;
-    state.teams = teams;
+    state.teams = append ? [...state.teams, ...teams] : teams;
+    listingPage = nextPage; $("teams-more").hidden = mine || saved || teams.length < 30;
     if (saved) state.savedTeams = teams;
     renderTeams();
     $("teams-status").textContent = teams.length + " team listings";
@@ -1087,7 +1108,7 @@ $("team-search").oninput = () => {
   clearTimeout(teamTimer);
   teamTimer = setTimeout(loadTeams, 300);
 };
-$("team-view-filter").onchange = loadTeams;
+$("team-view-filter").onchange = debounce(() => loadTeams());
 $("teams").addEventListener("click", (event) => {
   const edit = event.target.closest("[data-edit-team]"),
     del = event.target.closest("[data-delete-team]");
@@ -1160,37 +1181,27 @@ window.addEventListener("storage", (event) => {
       });
   }
 });
-const social = installSocialUI({ state, api, send, openAuth, toast, refreshNotifications, loadTeams });
+document.addEventListener('click', event => {
+  const button = event.target.closest('[data-content-page]'); if (!button) return;
+  state.contentPageNumber = Math.max(1, (state.contentPageNumber || 1) + Number(button.dataset.contentPage)); void loadContent();
+});
+const social = installSocialUI({ state, api, send, openAuth, toast, refreshNotifications, loadTeams, onActivity: () => adaptivePoller?.wake() });
 const readiness = installReadiness({ state, api, send, openAuth, toast, renderTeams, openNotifications, social });
 if (!matchMedia("(prefers-reduced-motion: reduce)").matches)
   initDotMatrixCanvas();
 renderAccount();
 void social.restore();
-loadProfiles();
 renderRoute();
 setupGoogle();
 if (state.token)
   hydrate().catch((error) => {
     toast(error.message);
   });
-setInterval(() => {
-  if (document.hidden) return;
-  refreshNotifications();
-  if (!state.matches && location.pathname === "/") loadProfiles();
-  if (location.pathname.startsWith("/profile/") && !$("profile-dialog").open)
-    refreshPublic();
-  if (
-    ["/teams", "/saved-teams", "/my-teams"].includes(location.pathname) &&
-    !$("team-dialog").open
-  )
-    loadTeams();
-  if (
-    ["/projects", "/hubs", "/calendar", "/mentorship"].includes(
-      location.pathname,
-    )
-  )
-    loadContent();
-}, 45000);
+adaptivePoller = createPoller({
+  enabled: () => Boolean(state.user),
+  active: () => social.activePoll(),
+  background: async () => { await refreshNotifications(); await social.refreshWorkspace(); },
+});
 async function refreshPublic() {
   const id = state.viewProfile?._id;
   if (!id) return;
@@ -1204,12 +1215,6 @@ async function refreshPublic() {
     if (version === routeVersion && error.status === 404) renderRoute();
   }
 }
-document.addEventListener("visibilitychange", () => {
-  if (!document.hidden) {
-    refreshNotifications();
-    refreshPublic();
-  }
-});
 
 $("mobile-menu-toggle").onclick = () => {
   const open = $("primary-links").classList.toggle("mobile-open");
@@ -1265,9 +1270,7 @@ document.addEventListener("click", async (e) => {
   if (!e.target.closest("#account-menu")) $("account-menu").open = false;
 });
 refreshHealth();
-setInterval(() => {
-  if (!document.hidden) refreshHealth();
-}, 30000);
+
 
 $("photo-picker").onclick = () => $("photo-file").click();
 $("photo-file").onchange = async (event) => {

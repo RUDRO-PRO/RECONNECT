@@ -34,3 +34,7 @@ schema.index({ invitationId: 1, type: 1 }, { unique: true, partialFilterExpressi
 schema.index({ communityId: 1, recipientId: 1 }, { unique: true, partialFilterExpression: { communityId: { $type: "objectId" } } });
 schema.index({ teamId: 1, recipientId: 1, senderId: 1, type: 1 }, { unique: true, partialFilterExpression: { teamId: { $type: "objectId" } } });
 module.exports = mongoose.model("Notification", schema);
+
+module.exports.schema.index({ recipientId: 1, read: 1, createdAt: -1 });
+module.exports.schema.index({ recipientId: 1, createdAt: -1, _id: -1 });
+module.exports.schema.index({ senderId: 1, type: 1, createdAt: -1 });

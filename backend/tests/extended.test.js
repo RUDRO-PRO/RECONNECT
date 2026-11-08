@@ -246,7 +246,7 @@ test("local accounts, secure password recovery, structured profiles, and owned t
   const data = {
     fullName: "Owner",
     headline: "Frontend | Robotics",
-    avatar: "data:image/jpeg;base64," + "A".repeat(180000),
+    avatar: "data:image/jpeg;base64," + "A".repeat(90000),
     college: {
       institution: "Example Institute",
       degree: "B.Tech",
@@ -284,7 +284,7 @@ test("local accounts, secure password recovery, structured profiles, and owned t
   assert.deepEqual((await request("/mentors")).data, []);
   const storedOwner = await User.findById(updated.data.userId);
   assert.equal(storedOwner.avatar, updated.data.avatar);
-  assert.ok(storedOwner.avatar.length > 128 * 1024);
+  assert.ok(storedOwner.avatar.length < 120000);
   const publicView = await request(`/profiles/${minimal.data._id}`);
   assert.equal(publicView.data.about, data.about);
   assert.equal(publicView.data.email, undefined);
@@ -455,6 +455,7 @@ test("local accounts, secure password recovery, structured profiles, and owned t
     skills: ["C++"],
     availabilityStatus: "Open to Hackathons & Dev Groups",
   });
+  await require("../server").initializeSchema();
   const legacy = (await request("/profiles?skill=C%2B%2B&available=true"))
     .data[0];
   assert.equal(legacy.headline, "Systems");
@@ -475,9 +476,10 @@ test("community matching is targeted, joins are idempotent, and My Teams include
   assert.equal(created.status, 201, JSON.stringify(created.data));
   assert.equal(created.data.memberCount, 1);
   const notices = await Notification.find({ communityId: created.data._id }).lean();
-  assert.equal(notices.length, 1);
-  assert.equal(String(notices[0].recipientId), matched.user.id);
-  assert.match(notices[0].message, /c\+\+/i);
+  assert.equal(notices.length, 2); // Indexed matching also includes the migrated legacy C++ builder.
+  const matchedNotice = notices.find(n => String(n.recipientId) === matched.user.id);
+  assert.ok(matchedNotice);
+  assert.match(matchedNotice.message, /c\+\+/i);
   assert.equal((await request("/communities", { token: matched.token })).data.find(c => c._id === created.data._id).joined, false);
   for (let i = 0; i < 2; i++) {
     const joined = await request(`/communities/${created.data.inviteCode}/join`, { token: matched.token, body: {} });
@@ -534,7 +536,7 @@ test("community rooms, connection notes, direct messages and team invites enforc
   assert.equal(details.creatorId.name, "admin");
   assert.equal(details.members.length, 3);
   assert.equal(details.members.find(m => m._id === member.user.id).roleTag, "Developer");
-  const photo = "data:image/jpeg;base64," + "A".repeat(200000);
+  const photo = "data:image/jpeg;base64," + "A".repeat(90000);
   const sent = await request(root + "/messages", { token: member.token, body: { text: "Architecture", imageUrl: photo } });
   assert.equal(sent.status, 201, JSON.stringify(sent.data));
   assert.equal(sent.data.senderId.name, "member");
@@ -571,9 +573,12 @@ test("community rooms, connection notes, direct messages and team invites enforc
   assert.ok(incremental.data.some(m => m._id === reply.data._id));
   assert.ok(incremental.data.every(m => m.createdAt >= reply.data.createdAt));
   assert.equal((await request(`${dm}?after=bad-date`, { token: admin.token })).status, 400);
-  // Initial history must not silently discard older messages after 200 entries.
+  // Bounded pages must retain access to all older messages.
   await DirectMessage.insertMany(Array.from({ length: 201 }, (_, i) => ({ conversationKey: [admin.user.id, member.user.id].sort().join(":"), senderId: admin.user.id, recipientId: member.user.id, text: `Earlier ${i}`, createdAt: new Date(1700000000000 + i) })));
-  assert.equal((await request(dm, { token: admin.token })).data.length, 204);
+  const pages = [];
+  for (let page = 1; page <= 7; page++) pages.push(...(await request(`${dm}?page=${page}`, { token: admin.token })).data);
+  assert.equal(pages.length, 204); assert.equal(new Set(pages.map(m => m._id)).size, 204);
+  assert.equal((await request(dm, { token: admin.token })).data.length, 30);
   assert.ok((await DirectMessage.collection.indexes()).some(index => index.key.senderId === 1 && index.key.recipientId === 1 && index.key.createdAt === 1));
   assert.equal((await request(dm, { token: outsider.token })).status, 403);
   assert.equal((await request(dm, { token: admin.token, body: { text: " " } })).status, 400);

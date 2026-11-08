@@ -25,7 +25,7 @@ export const link = (url, label) =>
   safeUrl(url)
     ? `<a href="${safeUrl(url)}" target="_blank" rel="noopener noreferrer">${escape(label)} ↗</a>`
     : "";
-export const avatarUrl = (value) => typeof value === "string" && value.length <= 700000 && /^data:image\/(?:jpeg|webp);base64,[A-Za-z0-9+/]+={0,2}$/.test(value) ? value : safeUrl(value);
+export const avatarUrl = (value) => /^\/api\/avatars\/[a-f\d]{24}\?v=[a-f\d]{12}$/i.test(value || "") ? value : typeof value === "string" && value.length <= 700000 && /^data:image\/(?:jpeg|webp);base64,[A-Za-z0-9+/]+={0,2}$/.test(value) ? value : safeUrl(value);
 export const avatar = (p) =>
   avatarUrl(p.avatar)
     ? `<img class="profile-avatar" src="${avatarUrl(p.avatar)}" alt="" referrerpolicy="no-referrer" loading="lazy">`

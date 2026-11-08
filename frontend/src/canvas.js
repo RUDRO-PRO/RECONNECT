@@ -292,11 +292,16 @@ export function initDotMatrixCanvas() {
 
   window.__render = render;
 
-  const t0 = performance.now();
+  const t0 = performance.now(); let frame, lastFrame = 0;
   function loop(now) {
-    render((now - t0) / 1000);
-    requestAnimationFrame(loop);
+    frame = undefined;
+    if (document.hidden) return;
+    if (canvas.getBoundingClientRect().bottom > 0 && now - lastFrame >= 33) { render((now - t0) / 1000); lastFrame = now; }
+    frame = requestAnimationFrame(loop);
   }
-  requestAnimationFrame(loop);
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) { cancelAnimationFrame(frame); frame = undefined; }
+    else if (!frame) frame = requestAnimationFrame(loop);
+  });
+  frame = requestAnimationFrame(loop);
 }
-

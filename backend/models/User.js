@@ -9,6 +9,7 @@ const schema = new mongoose.Schema({
     unique: true,
   },
   name: { type: String, required: true, trim: true, maxlength: 100 },
+  thumbnail: { type: String, default: "" },
   avatar: { type: String, default: "" },
   authProvider: { type: String, enum: ["google", "local"], default: "google" },
   isVerified: { type: Boolean, default: false },
@@ -31,5 +32,8 @@ const schema = new mongoose.Schema({
 });
 // Hydration preserves legacy accounts without treating new local accounts as verified.
 schema.pre("init", function(data) { if (data.isVerified === undefined || data.authProvider === "google") data.isVerified = true; });
-schema.pre("save", function() { if (this.authProvider === "google") this.isVerified = true; });
+schema.pre("save", function() { if (this.authProvider === "google") this.isVerified = true; this.thumbnail = require("../utils/avatarRef").avatarRef(this._id, this.avatar); });
 module.exports = mongoose.model("User", schema);
+
+// email and googleId already have unique indexes; _id protects auth lookups.
+module.exports.schema.index({ createdAt: -1 });

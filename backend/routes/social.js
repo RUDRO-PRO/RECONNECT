@@ -1,3 +1,4 @@
+const { page, messagePage } = require("../utils/pagination");
 const mongoose = require("mongoose");
 const Community = require("../models/Community");
 const CommunityMessage = require("../models/CommunityMessage");
@@ -16,39 +17,54 @@ async function connected(a, b) {
   if (!await Invitation.exists({ pairKey: pair(a, b), status: "accepted" })) fail(403, "Connect with this builder before messaging or inviting them to a team.");
 }
 async function room(req) {
-  const c = await Community.findById(id(req.params.id));
+  const c = await Community.findById(id(req.params.id)).lean();
   if (!c) fail(404, "Community not found.");
   if (!c.members.some(m => String(m) === String(req.user._id))) fail(403, "Join this community to enter the room.");
   return c;
 }
 async function connections(userId) {
-  const accepted = await Invitation.find({ status: "accepted", $or: [{ senderId: userId }, { receiverId: userId }] }).lean();
+  const accepted = await Invitation.find({ status: "accepted", $or: [{ senderId: userId }, { receiverId: userId }] }).select("senderId receiverId").limit(300).lean();
   const ids = accepted.map(i => String(i.senderId) === String(userId) ? i.receiverId : i.senderId);
-  const [users, profiles] = await Promise.all([User.find({ _id: { $in: ids } }).select("name email avatar").lean(), Profile.find({ userId: { $in: ids } }).select("userId headline skills").lean()]);
-  return users.map(u => { const p = profiles.find(p => String(p.userId) === String(u._id)); return { id: String(u._id), name: u.name, email: u.email, avatar: u.avatar, headline: p?.headline || "", skills: p?.skills || [] }; });
+  const [users, profiles] = await Promise.all([User.find({ _id: { $in: ids } }).select("name email thumbnail").lean(), Profile.find({ userId: { $in: ids } }).select("userId headline skills").lean()]);
+  return users.map(u => { const p = profiles.find(p => String(p.userId) === String(u._id)); return { id: String(u._id), name: u.name, email: u.email, avatar: u.thumbnail || "", headline: p?.headline || "", skills: p?.skills || [] }; });
+}
+async function conversations(userId, people) {
+  if (!people.length) return [];
+  const keys = people.map(p => pair(userId, p.id));
+  const [latest, unread] = await Promise.all([
+    DirectMessage.aggregate([{ $match: { conversationKey: { $in: keys } } }, { $sort: { conversationKey: 1, createdAt: -1, _id: -1 } }, { $group: { _id: '$conversationKey', text: { $first: '$text' }, createdAt: { $first: '$createdAt' } } }]),
+    DirectMessage.aggregate([{ $match: { recipientId: userId, read: false } }, { $group: { _id: '$senderId', count: { $sum: 1 } } }]),
+  ]);
+  const last = new Map(latest.map(m => [m._id, m])), counts = new Map(unread.map(m => [String(m._id), m.count]));
+  return people.map(p => { const message = last.get(pair(userId, p.id)); return { ...p, latestMessage: message?.text?.slice(0, 160) || '', updatedAt: message?.createdAt, unread: counts.get(p.id) || 0 }; }).sort((a, b) => (+new Date(b.updatedAt || 0)) - (+new Date(a.updatedAt || 0)) || a.id.localeCompare(b.id));
 }
 function installSocial(app, auth) {
   require("./teamWorkspace").installTeamWorkspace(app, auth);
   app.use(["/api/messages", "/api/connections"], auth);
   app.get("/api/connections", route(async (req, res) => res.json(await connections(req.user._id))));
-  app.get("/api/messages/conversations", route(async (req, res) => {
-    const people = await connections(req.user._id);
-    res.set("Cache-Control", "no-store").json(await Promise.all(people.map(async p => {
-      const conversationKey = pair(req.user._id, p.id);
-      const [latest, unread] = await Promise.all([DirectMessage.findOne({ conversationKey }).sort({ createdAt: -1, _id: -1 }).lean(), DirectMessage.countDocuments({ conversationKey, recipientId: req.user._id, read: false })]);
-      return { ...p, latestMessage: latest?.text || "", updatedAt: latest?.createdAt, unread };
-    })));
+  app.get(['/api/messages', '/api/messages/conversations'], route(async (req, res) => {
+    const people = await connections(req.user._id), pagination = page(req.query);
+    const result = await conversations(req.user._id, people);
+    res.json(result.slice(pagination.skip, pagination.skip + pagination.limit));
+  }));
+  app.get('/api/social/sync', auth, route(async (req, res) => {
+    const userId = req.user._id;
+    const [people, notifications, invitations, unreadNotifications] = await Promise.all([
+      connections(userId),
+      Notification.find({ recipientId: userId }).sort({ createdAt: -1, _id: -1 }).limit(30).populate('senderId', 'name').populate('invitationId', 'status').lean(),
+      Invitation.find({ $or: [{ senderId: userId }, { receiverId: userId }] }).select('senderId receiverId status').limit(600).lean(),
+      Notification.countDocuments({ recipientId: userId, read: false }),
+    ]);
+    const threads = await conversations(userId, people);
+    res.json({ notifications, invitations, connections: people, conversations: threads.slice(0, 30), unreadNotifications, unreadMessages: threads.reduce((sum, p) => sum + p.unread, 0) });
   }));
   app.get("/api/messages/:otherUserId", route(async (req, res) => {
     const other = id(req.params.otherUserId); await connected(req.user._id, other);
     const query = { conversationKey: pair(req.user._id, other) };
-    if (req.query.after !== undefined) {
-      const after = new Date(req.query.after);
-      if (typeof req.query.after !== "string" || !Number.isFinite(after.getTime())) bad("Invalid message timestamp.");
-      // Inclusive boundary avoids losing messages created in the same millisecond.
-      query.createdAt = { $gte: after };
-    }
-    const messages = await DirectMessage.find(query).sort({ createdAt: 1, _id: 1 }).lean();
+    const pagination = messagePage(req.query);
+    Object.assign(query, pagination.filter);
+    const messages = await DirectMessage.find(query).sort(pagination.sort).skip(pagination.skip).limit(pagination.limit).lean();
+    if (pagination.reverse) messages.reverse();
     const unread = messages.filter(m => String(m.recipientId) === String(req.user._id) && !m.read);
     if (unread.length) await DirectMessage.updateMany({ _id: { $in: unread.map(m => m._id) }, recipientId: req.user._id, read: false }, { $set: { read: true } });
     res.set("Cache-Control", "no-store").json(messages);
@@ -60,25 +76,25 @@ function installSocial(app, auth) {
   }));
   app.get("/api/communities/:id", auth, route(async (req, res) => {
     const c = await room(req);
-    await c.populate([{ path: "creatorId", select: "name email avatar" }, { path: "members", select: "name email avatar" }]);
-    const profiles = await Profile.find({ userId: { $in: c.members.map(m => m._id) } }).select("userId headline roleTag").lean();
-    const result = c.toObject();
-    result.members = result.members.map(m => ({ ...m, roleTag: profiles.find(p => String(p.userId) === String(m._id))?.headline || "" }));
+    const result = await Community.populate(c, [{ path: "creatorId", select: "name thumbnail", options: { lean: true } }, { path: "members", select: "name thumbnail", options: { lean: true } }]);
+    const profiles = await Profile.find({ userId: { $in: result.members.map(m => m._id) } }).select("userId headline roleTag").lean();
+    result.members = result.members.map(m => ({ ...m, avatar: m.thumbnail || "", roleTag: profiles.find(p => String(p.userId) === String(m._id))?.headline || "" }));
     res.set("Cache-Control", "no-store").json(result);
   }));
   app.get("/api/communities/:id/messages", auth, route(async (req, res) => {
     await room(req);
-    const messages = await CommunityMessage.find({ communityId: req.params.id }).sort({ createdAt: -1, _id: -1 }).limit(200).populate("senderId", "name avatar").lean();
-    res.set("Cache-Control", "no-store").json(messages.reverse());
+    const pagination = messagePage(req.query);
+    const messages = await CommunityMessage.find({ communityId: req.params.id, ...pagination.filter }).sort(pagination.sort).skip(pagination.skip).limit(pagination.limit).populate("senderId", "name").lean();
+    res.set("Cache-Control", "no-store").json(pagination.reverse ? messages.reverse() : messages);
   }));
   app.post("/api/communities/:id/messages", auth, route(async (req, res) => {
     await room(req);
     const message = text(req.body.text, "Message", 5000);
-    const imageUrl = text(req.body.imageUrl, "Image", 1200000);
+    const imageUrl = text(req.body.imageUrl, "Image", 120000);
     if (imageUrl && !/^data:image\/(?:jpeg|webp);base64,[A-Za-z0-9+/]+={0,2}$/.test(imageUrl)) bad("Attach a compressed JPEG or WebP image.");
     if (!message && !imageUrl) bad("Write a message or attach an image.");
     const saved = await CommunityMessage.create({ communityId: req.params.id, senderId: req.user._id, text: message, imageUrl });
-    await saved.populate("senderId", "name avatar");
+    await saved.populate("senderId", "name");
     res.status(201).json(saved);
   }));
   app.post("/api/communities/:id/add-member", auth, route(async (req, res) => {
@@ -96,7 +112,7 @@ function installSocial(app, auth) {
   }));
 
   app.get("/api/team-requests", auth, route(async (req, res) => {
-    res.set("Cache-Control", "no-store").json(await Notification.find({ senderId: req.user._id, type: "team_join_request" }).select("teamId status").lean());
+    res.set("Cache-Control", "no-store").json(await Notification.find({ senderId: req.user._id, type: "team_join_request" }).select("teamId status").limit(300).lean());
   }));
   app.get("/api/teams/:id/roster", route(async (req, res) => {
     const t = await Team.findById(id(req.params.id)).lean();
@@ -104,11 +120,11 @@ function installSocial(app, auth) {
     const creatorId = String(t.creatorId || t.ownerId);
     const members = [...(t.members || [])];
     if (!members.some(m => String(m.userId) === creatorId)) members.unshift({ userId: creatorId, role: "Lead" });
-    const [users, profiles] = await Promise.all([User.find({ _id: { $in: members.map(m => m.userId) } }).select("name avatar").lean(), Profile.find({ userId: { $in: members.map(m => m.userId) } }).select("userId headline").lean()]);
+    const [users, profiles] = await Promise.all([User.find({ _id: { $in: members.map(m => m.userId) } }).select("name thumbnail").lean(), Profile.find({ userId: { $in: members.map(m => m.userId) } }).select("userId headline").lean()]);
     res.json({ name: t.name, members: members.flatMap(m => {
       const u = users.find(u => String(u._id) === String(m.userId));
       const p = profiles.find(p => String(p.userId) === String(m.userId));
-      return u ? [{ id: u._id, name: u.name, avatar: u.avatar, role: m.role || "Member", headline: p?.headline || "", profileId: p?._id, lead: String(u._id) === creatorId }] : [];
+      return u ? [{ id: u._id, name: u.name, avatar: u.thumbnail || "", role: m.role || "Member", headline: p?.headline || "", profileId: p?._id, lead: String(u._id) === creatorId }] : [];
     }) });
   }));
   app.post("/api/teams/:teamId/request-join", auth, route(async (req, res) => {

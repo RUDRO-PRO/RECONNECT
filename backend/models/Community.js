@@ -9,3 +9,8 @@ module.exports = mongoose.model("Community", new mongoose.Schema({
   inviteCode: { type: String, unique: true, required: true, default: () => require("node:crypto").randomBytes(9).toString("base64url") },
   createdAt: { type: Date, default: Date.now },
 }));
+
+module.exports.schema.index({ createdAt: -1, _id: -1 });
+module.exports.schema.index({ members: 1, createdAt: -1 });
+module.exports.schema.index({ tags: 1, createdAt: -1 });
+module.exports.schema.index({ creatorId: 1 });

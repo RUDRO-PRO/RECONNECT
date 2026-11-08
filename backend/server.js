@@ -6,6 +6,8 @@ const mongoose = require("mongoose");
 const { installAuth, publicUser } = require("./routes/auth");
 const { installProfiles } = require("./routes/profiles");
 const Team = require("./models/Team");
+const { publicCache, cacheHeader, createReadCache } = require("./utils/readCache");
+const { page } = require("./utils/pagination");
 
 const { rateLimit } = require("express-rate-limit");
 const User = require("./models/User");
@@ -25,6 +27,8 @@ function fail(status, message) {
 }
 function createApp(options = {}) {
   const app = express();
+  const matchCache = createReadCache({ ttl: 60000, maxEntries: 300, maxBytes: 2 * 1024 * 1024 });
+  let activeMatches = 0;
   const clientId = require("./config").googleClientId(options.clientId);
   const geminiApiKey = options.geminiApiKey ?? process.env.GEMINI_API_KEY;
 
@@ -33,7 +37,7 @@ function createApp(options = {}) {
   app.use(
     cors(require("./config").corsOptions()),
   );
-  app.use(express.json({ limit: "2mb" }));
+  app.use(express.json({ limit: "256kb" }));
   app.use((req, res, next) => {
     req.body ??= {};
     next();
@@ -42,12 +46,17 @@ function createApp(options = {}) {
     "/api",
     rateLimit({
       windowMs: 60000,
-      limit: 120,
+      limit: req => ["GET", "HEAD"].includes(req.method) ? 3000 : 300,
       standardHeaders: "draft-7",
       legacyHeaders: false,
       message: { message: "Too many requests. Try again shortly." },
     }),
   );
+  app.use('/api', (req, res, next) => {
+    res.set('Cache-Control', 'private, no-store');
+    if (!['GET', 'HEAD', 'OPTIONS'].includes(req.method)) res.on('finish', () => { if (res.statusCode < 400 && req.path !== "/match") { publicCache.clear(); matchCache.clear(); } });
+    next();
+  });
   const publicLinks = Object.fromEntries(
     ["github", "linkedin", "twitter", "discord"].map((key) => {
       const value = process.env["PUBLIC_" + key.toUpperCase() + "_URL"];
@@ -74,16 +83,10 @@ function createApp(options = {}) {
     "/api/health",
     route(async (req, res) => {
       if (options.ensureDatabase) await options.ensureDatabase();
-      let database = false;
-      if (mongoose.connection.readyState === 1) {
-        try {
-          await mongoose.connection.db.command(
-            { ping: 1 },
-            { timeoutMS: 2000 },
-          );
-          database = true;
-        } catch {}
-      }
+      const database = await publicCache.get('health:database', async () => {
+        if (mongoose.connection.readyState !== 1) return false;
+        try { await mongoose.connection.db.command({ ping: 1 }, { timeoutMS: 2000 }); return true; } catch { return false; }
+      });
       const services = {
         database: database ? "operational" : "unavailable",
         google: configured(clientId) ? "configured" : "not configured",
@@ -106,8 +109,7 @@ function createApp(options = {}) {
         : Object.values(services).includes("not configured")
           ? "degraded"
           : "operational";
-      res
-        .set("Cache-Control", "no-store")
+      (database ? cacheHeader(req, res) : res.set("Cache-Control", "no-store"))
         .status(database ? 200 : 503)
         .json({
           status,
@@ -140,7 +142,7 @@ function createApp(options = {}) {
       res.json(
         await Invitation.find({
           $or: [{ senderId: req.user._id }, { receiverId: req.user._id }],
-        }).lean(),
+        }).select("senderId receiverId status createdAt").sort({ createdAt: -1 }).limit(600).lean(),
       ),
     ),
   );
@@ -194,8 +196,8 @@ function createApp(options = {}) {
     route(async (req, res) =>
       res.json(
         await Notification.find({ recipientId: req.user._id })
-          .sort({ createdAt: -1 })
-          .populate("senderId", "name avatar")
+          .sort({ createdAt: -1, _id: -1 }).skip(page(req.query).skip).limit(page(req.query).limit)
+          .populate("senderId", "name")
           .populate("invitationId", "status")
           .lean(),
       ),
@@ -268,6 +270,7 @@ function createApp(options = {}) {
     rateLimit({
       windowMs: 60000,
       limit: 5,
+      keyGenerator: req => String(req.user._id),
       message: { message: "Please wait before matching again." },
     }),
     route(async (req, res) => {
@@ -292,13 +295,19 @@ function createApp(options = {}) {
         ],
       })
         .sort({ createdAt: -1 })
-        .limit(100)
+        .limit(100).select("-projects -about -avatar -proofOfWork")
         .lean();
       const candidates = candidateRecords.map(normalizeProfile);
       if (!candidates.length) return res.json([]);
       const { rankComplementaryBuilders } = require("./utils/aiMatchmaker");
       const providers = options.matchProviders ?? require("./config").aiProviders({ ...process.env, ...(options.geminiApiKey !== undefined ? { GEMINI_API_KEY: options.geminiApiKey } : {}) });
-      res.json(await rankComplementaryBuilders(profile, candidates, { providers, ai: options.ai }));
+      const run = async () => {
+        if (activeMatches >= 2) return require('./utils/aiMatchmaker').localRank(profile, candidates);
+        activeMatches++;
+        try { return await rankComplementaryBuilders(profile, candidates, { providers, ai: options.ai, timeoutMs: 2500 }); }
+        finally { activeMatches--; }
+      };
+      res.json(options.ai ? await run() : await matchCache.get(String(req.user._id), run));
     }),
   );
   app.use("/api", (req, res) =>
@@ -354,6 +363,16 @@ async function dropLegacyIndex(collection, name) {
   try { await collection.dropIndex(name); }
   catch (error) { if (![26, 27].includes(error.code)) throw error; }
 }
+const databaseOptions = {
+    maxPoolSize: 5,
+    minPoolSize: 1,
+    serverSelectionTimeoutMS: 5000,
+    socketTimeoutMS: 20000,
+    waitQueueTimeoutMS: 5000,
+    maxIdleTimeMS: 60000,
+    bufferCommands: false,
+    autoIndex: false,
+  };
 const databaseCache = globalThis.__reconnectDatabase ??= { connection: null, promise: null };
 function initializeDatabase() {
   if (databaseCache.promise) return databaseCache.promise;
@@ -375,11 +394,10 @@ async function connectAndInitializeDatabase() {
       throw new Error(`Configure ${key} in backend/.env.`);
   if (process.env.JWT_SECRET.length < 32)
     throw new Error("JWT_SECRET must contain at least 32 characters.");
-  await mongoose.connect(process.env.MONGODB_URI, {
-    maxPoolSize: 5,
-    serverSelectionTimeoutMS: 5000,
-    autoIndex: false,
-  });
+  await mongoose.connect(process.env.MONGODB_URI, databaseOptions);
+}
+// Run explicitly on deployment, never once per serverless cold start.
+async function initializeSchema() {
   await User.updateMany({ $or: [{ isVerified: { $exists: false } }, { authProvider: "google" }] }, { $set: { isVerified: true } });
   const hello = await mongoose.connection.db.admin().command({ hello: 1 });
   if (!hello.setName && hello.msg !== "isdbgrid")
@@ -402,6 +420,10 @@ async function connectAndInitializeDatabase() {
   if (legacyNotificationIndex) await dropLegacyIndex(Notification.collection, legacyNotificationIndex.name);
   const legacyTeamIndex = notificationIndexes.find(i => i.key.teamId === 1 && i.key.recipientId === 1 && !i.key.type);
   if (legacyTeamIndex) await dropLegacyIndex(Notification.collection, legacyTeamIndex.name);
+  for await (const user of User.collection.find({}, { projection: { avatar: 1 } })) await User.collection.updateOne({ _id: user._id }, { $set: { thumbnail: require('./utils/avatarRef').avatarRef(user._id, user.avatar) } });
+  for await (const profile of Profile.collection.find({}, { projection: { fullName: 1, headline: 1, roleTag: 1, skills: 1, interests: 1, college: 1 } })) {
+    await Profile.collection.updateOne({ _id: profile._id }, { $set: require('./utils/searchFields').searchFields(profile) });
+  }
   await Promise.all([
     User.createIndexes(),
     Profile.createIndexes(),
@@ -416,6 +438,7 @@ async function connectAndInitializeDatabase() {
 }
 async function start() {
   await initializeDatabase();
+  if (process.env.INITIALIZE_SCHEMA === "true") await initializeSchema();
   createApp().listen(process.env.PORT || 5000, () =>
     console.log("Reconnect API ready."),
   );
@@ -427,4 +450,4 @@ if (require.main === module)
     );
     process.exit(1);
   });
-module.exports = { createApp, start, initializeDatabase, databaseReady: () => mongoose.connection.readyState === 1 };
+module.exports = { databaseOptions, createApp, start, initializeDatabase, initializeSchema, databaseReady: () => mongoose.connection.readyState === 1 };

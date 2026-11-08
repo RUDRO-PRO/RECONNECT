@@ -11,7 +11,10 @@
     "frontend:build": "npm --prefix frontend run build",
     "build": "cd frontend && npm install --include=dev && npm run build",
     "start": "node backend/server.js",
-    "check:function": "node scripts/check-function-size.cjs"
+    "check:function": "node scripts/check-function-size.cjs",
+    "db:initialize": "node scripts/initialize-database.cjs",
+    "test:load": "node scripts/load-test.mjs",
+    "test:load:local": "node scripts/load-test-local.cjs"
   },
   "engines": {
     "node": "22.x"

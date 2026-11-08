@@ -1,0 +1,104 @@
+{
+  "generatedAt": "2026-11-08T10:24:09.550Z",
+  "base": "http://127.0.0.1:62126",
+  "virtualUsers": 50,
+  "rounds": 5,
+  "maximumParallelRequests": 200,
+  "durationMs": 1789.99,
+  "requests": 1000,
+  "p50Ms": 98.36,
+  "p95Ms": 376.59,
+  "errorCount": 0,
+  "responseBytes": 5595900,
+  "errorRatePercent": 0,
+  "requestsPerSecond": 558.66,
+  "statusCounts": {
+    "200": 1000
+  },
+  "endpoints": {
+    "/api/health": {
+      "requests": 250,
+      "p50Ms": 10.04,
+      "p95Ms": 163.27,
+      "errorCount": 0,
+      "responseBytes": 70750
+    },
+    "/api/profiles": {
+      "requests": 250,
+      "p50Ms": 10.83,
+      "p95Ms": 163.89,
+      "errorCount": 0,
+      "responseBytes": 4695250
+    },
+    "/api/auth/me": {
+      "requests": 250,
+      "p50Ms": 117.46,
+      "p95Ms": 237.7,
+      "errorCount": 0,
+      "responseBytes": 34650
+    },
+    "/api/messages/conversations": {
+      "requests": 250,
+      "p50Ms": 335.6,
+      "p95Ms": 507.79,
+      "errorCount": 0,
+      "responseBytes": 795250
+    }
+  },
+  "clientDeduplication": {
+    "logicalCalls": 200,
+    "networkRequests": 50,
+    "inFlightReuses": 100,
+    "ttlHits": 50
+  },
+  "errors": [],
+  "environment": {
+    "database": "Disposable local MongoDB replica set (not Atlas M0)",
+    "users": 300,
+    "profiles": 300,
+    "acceptedConnections": 500,
+    "directMessages": 5000,
+    "communities": 45,
+    "teams": 35,
+    "pool": {
+      "maxPoolSize": 5,
+      "minPoolSize": 1,
+      "serverSelectionTimeoutMS": 5000,
+      "socketTimeoutMS": 20000,
+      "waitQueueTimeoutMS": 5000,
+      "maxIdleTimeMS": 60000,
+      "bufferCommands": false,
+      "autoIndex": false
+    },
+    "warmProcess": true
+  },
+  "databaseCommands": {
+    "ping:1": 1,
+    "find:profiles": 252,
+    "find:users": 753,
+    "find:invitations": 251,
+    "aggregate:directmessages": 502
+  },
+  "serverPublicCache": {
+    "hits": 550,
+    "coalesced": 0,
+    "loads": 2
+  },
+  "additionalPoolConnectionsDuringRun": 0,
+  "queryPlans": {
+    "discovery": {
+      "collectionScan": false,
+      "documentsExamined": 30,
+      "returned": 30
+    },
+    "prefixSearch": {
+      "collectionScan": false,
+      "documentsExamined": 30,
+      "returned": 30
+    },
+    "conversationLatest": {
+      "collectionScan": false,
+      "distinctScan": true
+    }
+  }
+}

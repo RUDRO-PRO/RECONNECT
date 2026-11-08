@@ -26,9 +26,8 @@ const project = new mongoose.Schema(
   },
   { _id: false },
 );
-module.exports = mongoose.model(
-  "Profile",
-  new mongoose.Schema(
+const searchSchema = new mongoose.Schema({ searchTokens: { type: [String], select: false }, skillKeys: { type: [String], select: false }, termKeys: { type: [String], select: false }, collegeKey: { type: String, select: false } });
+const profileSchema = new mongoose.Schema(
     {
       userId: {
         type: mongoose.Schema.Types.ObjectId,
@@ -68,6 +67,20 @@ module.exports = mongoose.model(
       portfolioUrl: { type: String, default: "" },
     },
     { timestamps: true },
-  ),
-);
+  );
+profileSchema.add(searchSchema);
+profileSchema.pre('save', function() { Object.assign(this, require('../utils/searchFields').searchFields(this)); });
+profileSchema.pre('findOneAndUpdate', function() { const update = this.getUpdate(); if (update.$set?.fullName) Object.assign(update.$set, require('../utils/searchFields').searchFields(update.$set)); });
+module.exports = mongoose.model('Profile', profileSchema);
 module.exports.availability = availability;
+
+module.exports.schema.index({ createdAt: -1, _id: -1 });
+module.exports.schema.index({ updatedAt: -1, _id: -1 });
+module.exports.schema.index({ mentorshipAvailable: 1, updatedAt: -1 });
+module.exports.schema.index({ 'hackathonAvailability.available': 1, createdAt: -1 });
+module.exports.schema.index({ availabilityStatus: 1, createdAt: -1 });
+module.exports.schema.index({ searchTokens: 1, createdAt: -1 });
+module.exports.schema.index({ skillKeys: 1, createdAt: -1 });
+module.exports.schema.index({ termKeys: 1 });
+module.exports.schema.index({ collegeKey: 1, createdAt: -1 });
+module.exports.schema.index({ 'college.institution': 1 });

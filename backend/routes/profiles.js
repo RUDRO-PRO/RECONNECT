@@ -1,3 +1,7 @@
+const { page } = require("../utils/pagination");
+const { publicCache, cacheHeader } = require("../utils/readCache");
+const { words } = require("../utils/searchFields");
+const { avatarRef } = require("../utils/avatarRef");
 const Profile = require("../models/Profile");
 const Team = require("../models/Team");
 const User = require("../models/User");
@@ -19,23 +23,23 @@ const fail = (status, message) => {
 const regex = (value) =>
   new RegExp(value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
 function installProfiles(app, auth) {
+  app.get('/api/avatars/:id', route(async (req, res) => {
+    if (!validId(req.params.id)) bad('Invalid avatar ID.');
+    const user = await Profile.findOne({ userId: req.params.id }).select('avatar').lean();
+    const match = user?.avatar?.match(/^data:image\/(jpeg|webp);base64,([A-Za-z0-9+/]+={0,2})$/);
+    if (!match) return res.status(404).end();
+    res.set('Cache-Control', 'public, max-age=300, s-maxage=86400').type(`image/${match[1]}`).send(Buffer.from(match[2], 'base64'));
+  }));
   app.get(
     "/api/projects",
     route(async (req, res) => {
-      const profiles = await Profile.find({ "projects.0": { $exists: true } })
-        .sort({ updatedAt: -1 })
-        .lean();
-      res
-        .set("Cache-Control", "no-store")
-        .json(
-          profiles.flatMap((p) =>
-            p.projects.map((project, index) => ({
-              ...project,
-              id: `${p._id}:${index}`,
-              builder: { profileId: p._id, fullName: p.fullName },
-            })),
-          ),
-        );
+      const pagination = page(req.query);
+      const projects = await Profile.aggregate([
+        { $sort: { updatedAt: -1, _id: -1 } }, { $unwind: { path: '$projects', includeArrayIndex: 'projectIndex' } },
+        { $skip: pagination.skip }, { $limit: pagination.limit },
+        { $project: { _id: 0, project: '$projects', builder: { profileId: '$_id', fullName: '$fullName' }, id: { $concat: [{ $toString: '$_id' }, ':', { $toString: '$projectIndex' }] } } },
+      ]);
+      cacheHeader(req, res).json(projects.map(p => ({ ...p.project, builder: p.builder, id: p.id })));
     }),
   );
   app.get(
@@ -46,6 +50,7 @@ function installProfiles(app, auth) {
           { $match: { "college.institution": { $type: "string", $ne: "" } } },
           { $group: { _id: "$college.institution", builders: { $sum: 1 } } },
           { $sort: { builders: -1, _id: 1 } },
+          { $skip: page(req.query).skip }, { $limit: page(req.query).limit },
         ]),
       );
     }),
@@ -56,9 +61,9 @@ function installProfiles(app, auth) {
       res.json(
         (
           await Profile.find({ mentorshipAvailable: true })
-            .sort({ updatedAt: -1 })
+            .sort({ updatedAt: -1 }).skip(page(req.query).skip).limit(page(req.query).limit).select("-projects -about")
             .lean()
-        ).map(normalizeProfile),
+        ).map(p => ({ ...normalizeProfile(p), avatar: avatarRef(p.userId, p.avatar) })),
       ),
     ),
   );
@@ -67,10 +72,10 @@ function installProfiles(app, auth) {
     auth,
     route(async (req, res) => {
       const user = await User.findById(req.user._id)
-        .select("+savedTeams")
+        .select("savedTeams")
         .lean();
       const teams = await Team.find({ _id: { $in: user.savedTeams || [] } })
-        .sort({ createdAt: -1 })
+        .sort({ createdAt: -1 }).limit(300)
         .lean();
       res.json(teams);
     }),
@@ -108,24 +113,9 @@ function installProfiles(app, auth) {
         skill = text(req.query.skill, "Skill filter", 50),
         college = text(req.query.college, "College filter", 150);
       const conditions = [];
-      if (search)
-        conditions.push({
-          $or: [
-            "fullName",
-            "headline",
-            "roleTag",
-            "skills.name",
-            "skills",
-            "proofOfWork",
-            "about",
-            "interests",
-          ].map((field) => ({ [field]: regex(search) })),
-        });
-      if (skill)
-        conditions.push({
-          $or: [{ "skills.name": regex(skill) }, { skills: regex(skill) }],
-        });
-      if (college) conditions.push({ "college.institution": regex(college) });
+      if (search) { const tokens = words(search); if (tokens.length) conditions.push({ searchTokens: { $all: tokens.slice(0, 10) } }); }
+      if (skill) conditions.push({ skillKeys: skill.toLowerCase() });
+      if (college) conditions.push({ collegeKey: new RegExp("^" + college.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, "\\$&")) });
       if (req.query.available !== undefined) {
         if (!["true", "false"].includes(req.query.available))
           bad("Availability filter must be true or false.");
@@ -142,17 +132,14 @@ function installProfiles(app, auth) {
           ],
         });
       }
-      res.set("Cache-Control", "no-store");
-      res.json(
-        (
-          // Native reads already return lean POJOs. Keep this path to avoid
-          // Mongoose casting legacy string skills as embedded skill documents.
-          await Profile.collection
-            .find(conditions.length ? { $and: conditions } : {})
-            .sort({ createdAt: -1 })
-            .toArray()
-        ).map(normalizeProfile),
-      );
+      const pagination = page(req.query);
+      const filter = conditions.length ? { $and: conditions } : {};
+      const key = JSON.stringify(['profiles', search.toLowerCase(), skill.toLowerCase(), college.toLowerCase(), req.query.available, pagination]);
+      const profiles = await publicCache.get(key, async () => (
+        await Profile.collection.find(filter, { projection: { projects: 0, about: 0, searchTokens: 0, skillKeys: 0, termKeys: 0, collegeKey: 0, passwordHash: 0, resetOtpHash: 0, verificationOtpHash: 0 } })
+          .sort({ createdAt: -1, _id: -1 }).skip(pagination.skip).limit(pagination.limit).toArray()
+      ).map(p => ({ ...normalizeProfile(p), avatar: avatarRef(p.userId, p.avatar) })));
+      cacheHeader(req, res).json(profiles);
     }),
   );
   app.get(
@@ -184,7 +171,7 @@ function installProfiles(app, auth) {
         { $set: profileInput(req.body) },
         { upsert: true, returnDocument: "after", runValidators: true },
       ).lean();
-      await User.updateOne({ _id: req.user._id }, { $set: { avatar: profile.avatar } });
+      await User.updateOne({ _id: req.user._id }, { $set: { avatar: profile.avatar, thumbnail: avatarRef(req.user._id, profile.avatar) } });
       res.json(normalizeProfile(profile));
     }),
   );
@@ -199,7 +186,7 @@ function installProfiles(app, auth) {
         { returnDocument: "after", runValidators: true },
       ).lean();
       if (!profile) fail(404, "Owned profile not found.");
-      await User.updateOne({ _id: req.user._id }, { $set: { avatar: profile.avatar } });
+      await User.updateOne({ _id: req.user._id }, { $set: { avatar: profile.avatar, thumbnail: avatarRef(req.user._id, profile.avatar) } });
       res.json(normalizeProfile(profile));
     }),
   );
@@ -233,7 +220,7 @@ function installProfiles(app, auth) {
         query.$or = ["name", "event", "domains", "skillsNeeded"].map(
           (field) => ({ [field]: regex(search) }),
         );
-      const teams = await Team.find(query).sort({ createdAt: -1 }).lean();
+      const teams = await Team.find(query).sort({ createdAt: -1, _id: -1 }).skip(page(req.query).skip).limit(page(req.query).limit).lean();
       const profiles = await Profile.find({
         userId: { $in: teams.map((t) => t.ownerId) },
       })
@@ -262,7 +249,7 @@ function installProfiles(app, auth) {
     route(async (req, res) =>
       res.json(
         await Team.find({ $or: [{ ownerId: req.user._id }, { creatorId: req.user._id }, { "members.userId": req.user._id }] })
-          .sort({ createdAt: -1 })
+          .sort({ createdAt: -1 }).limit(300)
           .lean(),
       ),
     ),

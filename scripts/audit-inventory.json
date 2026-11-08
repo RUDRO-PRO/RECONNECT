@@ -1,0 +1,250 @@
+[
+  {
+    "path": "api/index.js",
+    "lines": 38,
+    "bytes": 2065,
+    "sha256": "b483abf9ff71e01dd544d1b703ff6628b41941cd68e5ecbc5d1b1d4d150e9a0c",
+    "modified": true,
+    "audit": "Inspected existing warm connection reuse; added brief connection-failure backoff to avoid reconnect storms."
+  },
+  {
+    "path": "backend/models/Community.js",
+    "lines": 16,
+    "bytes": 904,
+    "sha256": "83dbdae3654c1d5f7c844746498e54c25bc899b482e42b53afd0f8c671c36b4b",
+    "modified": true,
+    "audit": "Added query-aligned compound indexes; existing schema security/default constraints preserved."
+  },
+  {
+    "path": "backend/models/CommunityMessage.js",
+    "lines": 6,
+    "bytes": 598,
+    "sha256": "12cf3d8b24ea00a21ce2462d0ad420171abd3259c2979b74849d785aec202cb5",
+    "modified": true,
+    "audit": "Added query-aligned compound indexes; existing schema security/default constraints preserved."
+  },
+  {
+    "path": "backend/models/DirectMessage.js",
+    "lines": 9,
+    "bytes": 849,
+    "sha256": "73d02b2ef7ed7917f2040afd5589933d8569f80c54b9b1fffd8c8d1f22114b72",
+    "modified": true,
+    "audit": "Added query-aligned compound indexes; existing schema security/default constraints preserved."
+  },
+  {
+    "path": "backend/models/Invitation.js",
+    "lines": 29,
+    "bytes": 923,
+    "sha256": "7368f0b7e9811549957de9cf5e470cd4f8b0bbdf91232de2c414d2fe87a8bfae",
+    "modified": true,
+    "audit": "Added query-aligned compound indexes; existing schema security/default constraints preserved."
+  },
+  {
+    "path": "backend/models/Notification.js",
+    "lines": 40,
+    "bytes": 1779,
+    "sha256": "c387e3b49dd4df98124c47362c7c133cb9a74046f413adb54a5fdbeb9e066312",
+    "modified": true,
+    "audit": "Added query-aligned compound indexes; existing schema security/default constraints preserved."
+  },
+  {
+    "path": "backend/models/Profile.js",
+    "lines": 86,
+    "bytes": 3746,
+    "sha256": "eff9a658009facca0dbdca80c1708f383a8940e74975e4a00d189620f4edad44",
+    "modified": true,
+    "audit": "Added query-aligned compound indexes; existing schema security/default constraints preserved."
+  },
+  {
+    "path": "backend/models/Team.js",
+    "lines": 40,
+    "bytes": 2409,
+    "sha256": "075e77792e0d42875f862d5577adf8b947496d565c7b2d1d25a1cd91129ac052",
+    "modified": true,
+    "audit": "Added query-aligned compound indexes; existing schema security/default constraints preserved."
+  },
+  {
+    "path": "backend/models/TeamMessage.js",
+    "lines": 11,
+    "bytes": 587,
+    "sha256": "f605143b801b1a5a9806efe70c18208d78b82a81d32398375c83addb862c8504",
+    "modified": false,
+    "audit": "Inspected: existing teamId/createdAt/_id compound index already supports cursor queries; unchanged."
+  },
+  {
+    "path": "backend/models/User.js",
+    "lines": 39,
+    "bytes": 1856,
+    "sha256": "9bb05d7684ba003fa6456307382a6221cf58c30ef0c39fa16223e4acf2f97144",
+    "modified": true,
+    "audit": "Added query-aligned compound indexes; existing schema security/default constraints preserved."
+  },
+  {
+    "path": "backend/routes/auth.js",
+    "lines": 361,
+    "bytes": 15549,
+    "sha256": "271df3c8bc99f3126b9672d08c551e7fc94f7af130d584aa465a5b4834f9640f",
+    "modified": true,
+    "audit": "Lean allowlisted identity reads; GETs exempt from mutation quota; per-IP/email keys; removed cold-start bcrypt generation."
+  },
+  {
+    "path": "backend/routes/communities.js",
+    "lines": 61,
+    "bytes": 5186,
+    "sha256": "143bfd54a502d443af1a1af1418fcc93fc9bf5195cdb72b9be1cbabefc27ea39",
+    "modified": true,
+    "audit": "Paged community list; indexed matching terms; local recommendations instead of passive paid/provider calls."
+  },
+  {
+    "path": "backend/routes/profiles.js",
+    "lines": 302,
+    "bytes": 11415,
+    "sha256": "2614b341c9270008d50e4782307743dd66cee85058ee0683eafd44f7ef4fdd0b",
+    "modified": true,
+    "audit": "Paged/projected discovery, indexed search, public cache, separate cached avatars, bounded secondary lists."
+  },
+  {
+    "path": "backend/routes/social.js",
+    "lines": 199,
+    "bytes": 15153,
+    "sha256": "abf00a492960057da5812d9ef47cb91b0690ad69d609e8a47b070f81460a72e9",
+    "modified": true,
+    "audit": "Batched conversation aggregates; one social sync route; lean projections; bounded incremental chat and metadata."
+  },
+  {
+    "path": "backend/routes/teamWorkspace.js",
+    "lines": 96,
+    "bytes": 7018,
+    "sha256": "b15a47167dbbb1b3c2e45d553af19062c5a8fbba1d1188c64c82d20819153209",
+    "modified": true,
+    "audit": "Lean membership projections; dedicated incremental messages; asset metadata only until authorized detail fetch."
+  },
+  {
+    "path": "backend/server.js",
+    "lines": 453,
+    "bytes": 17977,
+    "sha256": "e167cd1b45d283c2d67ba2c057c836f149ac4dbace619e83179b6f54d4c67775",
+    "modified": true,
+    "audit": "Strict cached pool, cached health, explicit migrations, private defaults, bounded bodies and lists, AI concurrency/cache/timeout guards."
+  },
+  {
+    "path": "frontend/src/apiClient.js",
+    "lines": 32,
+    "bytes": 2017,
+    "sha256": "91866e9ca5153350857822404ac2d8455a5e8069adfb3e8f8d2e9257586cc9a0",
+    "modified": true,
+    "audit": "Session-scoped in-flight coalescing, 20s TTL, bounded entries and mutation invalidation."
+  },
+  {
+    "path": "frontend/src/canvas.js",
+    "lines": 307,
+    "bytes": 9167,
+    "sha256": "eadb14fe7d446d43a79fa0f45d26c35e0c2f4a76cdf8f621c29a995b4d66d1f5",
+    "modified": true,
+    "audit": "Pause hidden animation; skip offscreen painting; cap rendering near 30fps."
+  },
+  {
+    "path": "frontend/src/communities.js",
+    "lines": 10,
+    "bytes": 1234,
+    "sha256": "f28c3b8434a61cc4c51f2762f63f61eea8468a82f33315ffee457ac88d899831",
+    "modified": false,
+    "audit": "Inspected: pure card/share rendering, no polling or network calls; unchanged."
+  },
+  {
+    "path": "frontend/src/content.js",
+    "lines": 261,
+    "bytes": 16666,
+    "sha256": "229cce27501ba2515fc354e4c1a420fd5b18ba8902711f28cf31c46f4999eb5a",
+    "modified": true,
+    "audit": "Updated session/pagination API documentation; dynamic content consumes paged API through main."
+  },
+  {
+    "path": "frontend/src/main.js",
+    "lines": 1344,
+    "bytes": 52340,
+    "sha256": "8911ba065d07a5aa3506d194d00e94f2fdbba1f95895756a533f147c9cb41979",
+    "modified": true,
+    "audit": "Shared client and social sync; removed background directory/health refresh storms; paged UI; debounced filters."
+  },
+  {
+    "path": "frontend/src/messages.js",
+    "lines": 14,
+    "bytes": 673,
+    "sha256": "95649d7b896e69a9b96b39df02acc2f04b9865a881836e0148a22cc0ab099909",
+    "modified": true,
+    "audit": "Stable timestamp plus ID cursors; message reconciliation retained."
+  },
+  {
+    "path": "frontend/src/photo.js",
+    "lines": 42,
+    "bytes": 2394,
+    "sha256": "f194eb021768b8a1f3c59e012d569c88808bffe3b9adadf513bb365dac216272",
+    "modified": true,
+    "audit": "Canvas JPEG quality .75, max 720px; iterative resize to <120,000 encoded characters; legacy avatar recompression."
+  },
+  {
+    "path": "frontend/src/poller.js",
+    "lines": 22,
+    "bytes": 1523,
+    "sha256": "7512ea22efebfd9419e5e678fea55fe978a1bc35e7806ccd641641b1783764a5",
+    "modified": true,
+    "audit": "Single network scheduler: active chat 3s; background 45s; hidden/offline pause; failure backoff."
+  },
+  {
+    "path": "frontend/src/readiness.js",
+    "lines": 60,
+    "bytes": 5774,
+    "sha256": "dd691c4c544cbae3178042091434438576b1cc91d7fc33ead922ce0848d16e5f",
+    "modified": false,
+    "audit": "Inspected: explicit user-triggered profile/roster reads use shared API client; no network timer; unchanged."
+  },
+  {
+    "path": "frontend/src/session.js",
+    "lines": 21,
+    "bytes": 760,
+    "sha256": "ad8260dbf095702b45fb6c902ac0cb4939ca6ac6f5ab8ef04fe516547cd37289",
+    "modified": false,
+    "audit": "Inspected: one bounded session retry; no recurring timer; shared API client handles deduplication; unchanged."
+  },
+  {
+    "path": "frontend/src/social.js",
+    "lines": 321,
+    "bytes": 24757,
+    "sha256": "1448502969db3448677fbba9c795183ded283eccc53b643e0b8cdcdbff82ce77",
+    "modified": true,
+    "audit": "Incremental direct/community chat; delegated scheduler; on-demand older history and conversation pages."
+  },
+  {
+    "path": "frontend/src/style.css",
+    "lines": 1849,
+    "bytes": 43909,
+    "sha256": "7e3fbd03e626e47d62c30a01cf59370ff93582e6a9f39f70da77791deb044f25",
+    "modified": true,
+    "audit": "Pagination control layout; existing responsive/dark-mode rules retained."
+  },
+  {
+    "path": "frontend/src/teamWorkspace.js",
+    "lines": 130,
+    "bytes": 16341,
+    "sha256": "1eca954705b5c1160f067a92af1b95b5db88467cd612599a4776f9a9709c4007",
+    "modified": true,
+    "audit": "Incremental team chat; no local polling timer; lazy private assets; history pagination."
+  },
+  {
+    "path": "frontend/src/ui.js",
+    "lines": 77,
+    "bytes": 7482,
+    "sha256": "a7709e69b1c3f487ca7429f4db6f667fd3be2e1f7b96f7a5dd39e58a6d119651",
+    "modified": true,
+    "audit": "Allow only validated same-origin avatar references alongside existing safe raster/HTTP URLs."
+  },
+  {
+    "path": "vercel.json",
+    "lines": 33,
+    "bytes": 960,
+    "sha256": "ae98bb902f64343f95205509b4f88de78053147972f27c5da45dd0bcfdf470be",
+    "modified": true,
+    "audit": "Deterministic install/build steps and immutable hashed assets; narrow single-function routing/exclusions retained."
+  }
+]

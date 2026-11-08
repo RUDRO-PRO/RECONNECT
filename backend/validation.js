@@ -61,7 +61,7 @@ function profileInput(body) {
   const result = { fullName: text(body.fullName, "Full name", 100, true) };
   result.headline = text(body.headline ?? body.roleTag, "Headline", 200);
   result.roleTag = result.headline;
-  const photo = text(body.avatar, "Profile photo", 700000);
+  const photo = text(body.avatar, "Profile photo", 120000);
   if (photo.startsWith("data:")) {
     if (!/^data:image\/(?:jpeg|webp);base64,[A-Za-z0-9+/]+={0,2}$/.test(photo)) bad("Choose a JPEG or WebP profile photo.");
     result.avatar = photo;

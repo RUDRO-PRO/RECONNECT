@@ -65,7 +65,7 @@ const pages = {
   "/resources/api": [
     "API Documentation",
     paragraph(
-      "The Reconnect REST API uses JSON. Protected routes require an eight-hour session token in the Authorization header: Bearer &lt;token&gt;. Never place credentials in URLs.",
+      "The Reconnect REST API uses JSON. Protected routes require an 30-day session token in the Authorization header: Bearer &lt;token&gt;. Never place credentials in URLs.",
     ) +
       section(
         "Identity",
@@ -73,7 +73,7 @@ const pages = {
       ) +
       section(
         "Profiles & discovery",
-        `<dl><dt>GET /api/profiles</dt><dd>Optional query fields: search, skill, college, available=true|false.</dd><dt>GET /api/profiles/:id</dt><dd>Read the current published profile.</dd><dt>POST /api/profiles</dt><dd>Create or replace your profile. Required: fullName. Optional: avatar, headline, college, about, skills, interests, projects, resumeUrl, hackathonAvailability, mentorshipAvailable.</dd><dt>PUT /api/profiles/:id · DELETE /api/profiles/:id</dt><dd>Owner-only update/delete. Deleting a profile closes its team's listings.</dd><dt>GET /api/projects · GET /api/colleges · GET /api/mentors</dt><dd>Project showcase, college counts, and builders who opted into mentoring.</dd><dt>POST /api/match</dt><dd>Matches against your persisted profile, never client-supplied identity.</dd></dl>`,
+        `<dl><dt>GET /api/profiles</dt><dd>Optional query fields: search (word prefixes), skill, college, available=true|false, page, limit (maximum 30).</dd><dt>GET /api/profiles/:id</dt><dd>Read the current published profile.</dd><dt>POST /api/profiles</dt><dd>Create or replace your profile. Required: fullName. Optional: avatar, headline, college, about, skills, interests, projects, resumeUrl, hackathonAvailability, mentorshipAvailable.</dd><dt>PUT /api/profiles/:id · DELETE /api/profiles/:id</dt><dd>Owner-only update/delete. Deleting a profile closes its team's listings.</dd><dt>GET /api/projects · GET /api/colleges · GET /api/mentors</dt><dd>Project showcase, college counts, and builders who opted into mentoring.</dd><dt>POST /api/match</dt><dd>Matches against your persisted profile, never client-supplied identity.</dd></dl>`,
       ) +
       section(
         "Teams & connections",
@@ -196,7 +196,7 @@ const pages = {
     section(
       "Local storage",
       paragraph(
-        "Reconnect stores the signed session token under reconnect_token and your theme preference under reconnect_theme in localStorage. The token expires after eight hours. Signing out removes the local token and revokes existing account sessions.",
+        "Reconnect stores the signed session token under reconnect_token and your theme preference under reconnect_theme in localStorage. The token expires after 30 days. Signing out removes the local token and revokes existing account sessions.",
       ),
     ) +
       section(

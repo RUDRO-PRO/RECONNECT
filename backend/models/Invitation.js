@@ -22,3 +22,8 @@ module.exports = mongoose.model(
     createdAt: { type: Date, default: Date.now },
   }),
 );
+
+module.exports.schema.index({ senderId: 1, status: 1, createdAt: -1 });
+module.exports.schema.index({ receiverId: 1, status: 1, createdAt: -1 });
+module.exports.schema.index({ senderId: 1, createdAt: -1 });
+module.exports.schema.index({ receiverId: 1, createdAt: -1 });

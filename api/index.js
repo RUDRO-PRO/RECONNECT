@@ -1,10 +1,12 @@
 const { createApp, initializeDatabase, databaseReady } = require("../backend/server.js");
 let cachedConn = null;
 let initialized = false;
+let retryAfter = 0, lastFailure = null;
 
 async function ensureDatabase() {
   // Share an in-flight promise, reuse a warm pool, and allow retry after failure/disconnect.
   if (initialized && !databaseReady()) { cachedConn = null; initialized = false; }
+  if (!cachedConn && retryAfter > Date.now()) throw lastFailure;
   if (!cachedConn) {
     cachedConn = initializeDatabase().then(() => { initialized = true; }).catch(error => {
       cachedConn = null; initialized = false;
@@ -15,6 +17,7 @@ async function ensureDatabase() {
       console.error(`[Reconnect] ${code}. Check Vercel environment settings, MongoDB credentials/network access, and replica-set support.`);
       const failure = new Error("We couldn't connect to your account service. Please try again shortly.");
       failure.status = 503; failure.publicCode = code;
+      retryAfter = Date.now() + 2000; lastFailure = failure;
       throw failure;
     });
   }

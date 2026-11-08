@@ -33,3 +33,8 @@ module.exports = mongoose.model(
     { timestamps: true },
   ),
 );
+
+module.exports.schema.index({ status: 1, createdAt: -1, _id: -1 });
+module.exports.schema.index({ ownerId: 1, createdAt: -1 });
+module.exports.schema.index({ creatorId: 1, createdAt: -1 });
+module.exports.schema.index({ 'members.userId': 1, createdAt: -1 });

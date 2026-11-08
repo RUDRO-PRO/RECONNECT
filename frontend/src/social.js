@@ -1,17 +1,20 @@
+import { debounce } from "./poller.js";
+import { cursorQuery } from "./messages.js";
 import { installTeamWorkspace } from "./teamWorkspace.js";
 import { $, escape, avatar } from "./ui.js";
 import { compressPhoto } from "./photo.js";
-import { mergeMessages, messagePollDelay } from "./messages.js";
-export function installSocialUI({ state, api, send, openAuth, toast, refreshNotifications, loadTeams }) {
-  const workspaceUI = installTeamWorkspace({ state, api, send, openAuth, toast });
+import { mergeMessages } from "./messages.js";
+export function installSocialUI({ state, api, send, openAuth, toast, refreshNotifications, loadTeams, onActivity = () => {} }) {
+  const workspaceUI = installTeamWorkspace({ state, api, send, openAuth, toast, onActivity });
   document.body.insertAdjacentHTML("beforeend", `
     <dialog id="room-dialog" class="chat-dialog" aria-labelledby="room-title"><div class="dialog-heading"><div><h2 id="room-title">Community</h2><p id="room-admin" class="muted"></p></div><button data-social-close="room-dialog" aria-label="Close room">×</button></div><button id="room-members">Members</button><p id="room-status" role="status"></p><div id="room-feed" class="message-feed" aria-label="Community messages"></div><form id="room-compose"><label>Message<textarea name="text" maxlength="5000" rows="2" placeholder="Share an idea with your community..."></textarea></label><div id="room-image-preview"></div><div class="toolbar"><button type="button" id="room-attach">Attach image</button><input type="file" id="room-image" accept="image/*" hidden><button type="button" id="room-remove-image" hidden>Remove image</button><button class="primary" id="room-send">Send</button></div></form></dialog>
     <dialog id="members-dialog" aria-labelledby="members-title"><div class="dialog-heading"><h2 id="members-title">Members</h2><button data-social-close="members-dialog" aria-label="Close members">×</button></div><div id="room-member-list" class="people-list"></div><h3>Invite / Add Member</h3><label>Search Reconnect builders<input id="member-search" placeholder="Search by name or skill..."></label><div id="member-results" class="people-list" role="status"></div></dialog>
     <dialog id="dm-dialog" class="chat-dialog dm-dialog" aria-labelledby="dm-title"><div class="dialog-heading"><h2 id="dm-title">Direct Messages</h2><button data-social-close="dm-dialog" aria-label="Close messages">×</button></div><div class="dm-layout"><aside><label>Search connections<input id="dm-search" placeholder="Find a connection..."></label><div id="dm-conversations" class="people-list"></div></aside><section><h3 id="dm-person">Choose a connection</h3><p id="dm-status" role="status"></p><div id="dm-feed" class="message-feed" aria-label="Direct messages"></div><form id="dm-compose" hidden><label>Message<textarea name="text" required maxlength="5000" rows="2" placeholder="Start a conversation..."></textarea></label><button class="primary" id="dm-send">Send message</button></form></section></div></dialog>
     <dialog id="connection-note" aria-labelledby="note-title"><div class="dialog-heading"><h2 id="note-title">Connect with this builder</h2><button data-social-close="connection-note" aria-label="Cancel invitation">×</button></div><form id="note-form"><label>Optional introduction<textarea id="note-text" maxlength="1000" rows="4" placeholder="Hey, I am building an AI project. Let's connect!"></textarea></label><p class="muted">Your note accompanies the invitation and opens your conversation after they accept.</p><button class="primary">Send connection request</button></form></dialog>`);
   let currentRoom = null, roomCode = null, imageUrl = "", roomEpoch = 0, dmEpoch = 0;
+  let conversationPage = 1;
   let people = [], selectedPerson = null, noteResolve = null;
-  let chatUser = null, threads = {}, cursors = {}, pollTimer, conversationsAt = 0;
+  let chatUser = null, threads = {}, cursors = {}, roomMessages = [];
   const cacheKey = userId => `reconnect_messages_${userId}`;
   function cacheChats() {
     if (!chatUser || chatUser !== state.user?.id) return;
@@ -38,7 +41,7 @@ export function installSocialUI({ state, api, send, openAuth, toast, refreshNoti
       selectedPerson = people.find(p => p.id === cached?.selected) || null;
     } catch {}
     renderConversations(); renderThread();
-    await Promise.all([refreshConversations(), refreshThread(true, true)]);
+
   }
   let team = null, teamPeople = [], queued = new Set(), invited = new Set(), teamEpoch = 0;
   let refreshing = false, searching = 0, searchTimer;
@@ -52,22 +55,25 @@ export function installSocialUI({ state, api, send, openAuth, toast, refreshNoti
     const html = messages.map(m => messageHtml(m, group)).join("") || '<p class="muted">No messages yet. Start the conversation.</p>';
     if (element.innerHTML !== html) { element.innerHTML = html; if (atBottom) element.scrollTop = element.scrollHeight; }
   }
-  async function refreshRoom() {
+  async function refreshRoom(incremental = false) {
     if (!currentRoom || !$("room-dialog").open) return;
     const epoch = roomEpoch, roomId = currentRoom._id;
     try {
-      const [room, messages] = await Promise.all([api(`/communities/${roomId}`), api(`/communities/${roomId}/messages`)]);
+      const [room, messages] = await Promise.all([incremental ? currentRoom : api(`/communities/${roomId}`), api(`/communities/${roomId}/messages${incremental ? cursorQuery(roomMessages.at(-1)) : ""}`)]);
       if (epoch !== roomEpoch || !$("room-dialog").open) return;
       currentRoom = room;
       $("room-title").textContent = room.name;
       $("room-admin").textContent = `Created by ${room.creatorId?.name || "Admin"} · Admin`;
       $("room-members").textContent = `${room.members.length} Members`;
       $("room-status").textContent = "";
-      feed($("room-feed"), messages, true);
+      roomMessages = mergeMessages(incremental ? roomMessages : [], messages);
+      feed($("room-feed"), roomMessages, true);
+      $("room-earlier").hidden = roomMessages.length < 30;
       if ($("members-dialog").open) renderMembers();
     } catch (error) {
       if (epoch !== roomEpoch) return;
       $("room-status").textContent = error.message;
+      if (incremental) throw error;
       if ([403, 404].includes(error.status)) {
         $("room-feed").replaceChildren(); $("room-compose").hidden = true; $("room-members").disabled = true; $("members-dialog").close();
       }
@@ -75,6 +81,7 @@ export function installSocialUI({ state, api, send, openAuth, toast, refreshNoti
   }
   async function openRoom(id, code) {
     if (!state.user) return openAuth(() => openRoom(id, code));
+    workspaceUI.reset(); $("dm-dialog").close(); roomMessages = [];
     ++roomEpoch; currentRoom = { _id: id }; roomCode = code; imageUrl = "";
     $("room-feed").replaceChildren(); $("room-title").textContent = "Community"; $("room-admin").textContent = "";
     $("room-compose").reset(); $("room-image-preview").replaceChildren(); $("room-remove-image").hidden = true;
@@ -86,7 +93,7 @@ export function installSocialUI({ state, api, send, openAuth, toast, refreshNoti
       if (epoch !== roomEpoch) return;
       currentRoom = loaded;
       $("room-compose").hidden = false; $("room-members").disabled = false;
-      await refreshRoom();
+      await refreshRoom(); schedulePoll();
     } catch (error) {
       if (epoch !== roomEpoch) return;
       $("room-status").textContent = error.message;
@@ -110,7 +117,7 @@ export function installSocialUI({ state, api, send, openAuth, toast, refreshNoti
         const members = new Set(currentRoom.members.map(m => String(m._id)));
         $("member-results").innerHTML = profiles.filter(p => !members.has(String(p.userId))).slice(0, 30).map(p => `<div class="person-row">${avatar(p)}<div><strong>${escape(p.fullName)}</strong><p>${escape(p.headline)}</p></div><button data-add-member="${p.userId}">Add</button></div>`).join("") || '<p class="muted">No other builders found.</p>';
       } catch (error) { if (epoch === searching) $("member-results").textContent = error.message; }
-    }, 250);
+    }, 300);
   };
   $("room-attach").onclick = () => $("room-image").click();
   $("room-image").onchange = async event => {
@@ -144,37 +151,47 @@ export function installSocialUI({ state, api, send, openAuth, toast, refreshNoti
     const token = state.token;
     try {
       const result = await api("/messages/conversations"); if (token !== state.token) return;
+      conversationPage = 1; $("dm-more").hidden = result.length < 30;
       people = result.sort((a, b) => (b.updatedAt || "").localeCompare(a.updatedAt || ""));
-      conversationsAt = Date.now();
+
       cacheChats();
       $("messages-unread").textContent = people.reduce((sum, p) => sum + p.unread, 0);
       if ($("dm-dialog").open) renderConversations();
     } catch (error) { if ($("dm-dialog").open) $("dm-status").textContent = error.message; }
   }
-  async function refreshThread(full = true, allowClosed = false) {
+  async function refreshThread(full = true, allowClosed = false, propagate = false) {
     if (!selectedPerson || (!allowClosed && !$("dm-dialog").open)) return;
     const epoch = dmEpoch, other = selectedPerson.id, token = state.token;
     try {
-      const after = !full && cursors[other] ? `?after=${encodeURIComponent(cursors[other])}` : "";
+      const after = !full ? cursorQuery(cursors[other]) : "";
       const messages = await api(`/messages/${other}${after}`);
       if (token !== state.token) return;
       threads[other] = mergeMessages(threads[other] || [], messages);
-      const latest = messages.at(-1)?.createdAt;
-      if (latest && (!cursors[other] || latest > cursors[other])) cursors[other] = latest;
-      cacheChats();
+      const latest = messages.at(-1);
+      if (latest) cursors[other] = latest;
+      $("dm-earlier").hidden = (threads[other] || []).filter(m => !m.pending).length < 30;
+      if (messages.length) cacheChats();
       if (epoch === dmEpoch) { renderThread(); $("dm-status").textContent = ""; }
     } catch (error) {
       if (token !== state.token) return;
       if ([403, 404].includes(error.status)) { delete threads[other]; delete cursors[other]; cacheChats(); }
       if (epoch === dmEpoch) { renderThread(); $("dm-status").textContent = error.message; }
+      if (propagate) throw error;
     }
   }
   $("messages-toggle").onclick = async () => {
     if (!state.user) return openAuth();
+    workspaceUI.reset(); $("room-dialog").close();
     $("dm-dialog").showModal(); renderConversations(); renderThread(); schedulePoll();
     await Promise.all([refreshConversations(), refreshThread()]);
   };
-  $("dm-search").oninput = renderConversations;
+  $('dm-conversations').insertAdjacentHTML('afterend', '<button id="dm-more" hidden>More connections</button>');
+  $('dm-more').onclick = async () => {
+    const button = $('dm-more'), token = state.token; button.disabled = true;
+    try { const next = await api(`/messages/conversations?page=${conversationPage + 1}`); if (token !== state.token) return; conversationPage++; people = [...new Map([...people, ...next].map(p => [p.id, p])).values()]; button.hidden = next.length < 30; renderConversations(); }
+    catch (error) { toast(error.message); } finally { button.disabled = false; }
+  };
+  $("dm-search").oninput = debounce(renderConversations);
   $("dm-compose").onsubmit = async event => {
     event.preventDefault();
     if (!selectedPerson || !state.user) return;
@@ -190,7 +207,7 @@ export function installSocialUI({ state, api, send, openAuth, toast, refreshNoti
       threads[other] = mergeMessages(threads[other] || [], [saved]);
       cacheChats();
       if (selectedPerson?.id === other) renderThread();
-      void refreshConversations();
+
     } catch (error) {
       if (token !== state.token) return;
       threads[other] = (threads[other] || []).filter(m => m._id !== clientMessageId);
@@ -214,7 +231,7 @@ export function installSocialUI({ state, api, send, openAuth, toast, refreshNoti
       teamPeople = connections; invited = new Set(invitations.map(n => String(n.recipientId))); renderTeamPeople();
     } catch (error) { if (epoch === teamEpoch) $("team-connection-list").textContent = error.message; }
   }
-  $("team-connection-search").oninput = renderTeamPeople;
+  $("team-connection-search").oninput = debounce(renderTeamPeople);
   $("note-form").onsubmit = event => { event.preventDefault(); const resolve = noteResolve; noteResolve = null; resolve?.($("note-text").value); $("connection-note").close(); };
   $("connection-note").addEventListener("close", () => { noteResolve?.(null); noteResolve = null; });
   $("room-dialog").addEventListener("close", () => { ++roomEpoch; currentRoom = null; imageUrl = ""; $("members-dialog").close(); });
@@ -243,31 +260,44 @@ export function installSocialUI({ state, api, send, openAuth, toast, refreshNoti
     } catch (error) { toast(error.message); }
     finally { if (action.isConnected) action.disabled = false; }
   });
-  function schedulePoll() {
-    clearTimeout(pollTimer);
-    pollTimer = setTimeout(pollMessages, messagePollDelay($("dm-dialog").open, document.hidden));
+  function schedulePoll() { onActivity(); }
+  function activePoll() {
+    if (!state.user) return null;
+    if (workspaceUI.activePoll()) return workspaceUI.activePoll();
+    if ($('dm-dialog').open && selectedPerson) return () => refreshThread(false, false, true);
+    if ($('room-dialog').open && currentRoom) return () => refreshRoom(true);
+    return null;
   }
-  async function pollMessages() {
-    if (!state.user || refreshing) { schedulePoll(); return; }
-    refreshing = true;
-    try {
-      if (!document.hidden && $("dm-dialog").open && selectedPerson)
-        await Promise.all([refreshThread(false), Date.now() - conversationsAt >= 30000 ? refreshConversations() : undefined]);
-      else await refreshConversations();
-    } finally { refreshing = false; schedulePoll(); }
+  function acceptSync(summary) {
+    if (!state.user) return;
+    people = summary.conversations || []; conversationPage = 1; $("dm-more").hidden = people.length < 30;
+    $('messages-unread').textContent = summary.unreadMessages || 0;
+    cacheChats(); if ($('dm-dialog').open) renderConversations();
   }
-  document.addEventListener("visibilitychange", () => {
-    schedulePoll();
-    if (!document.hidden && state.user && $("dm-dialog").open)
-      void Promise.all([refreshConversations(), refreshThread()]);
-  });
-  schedulePoll();
-  setInterval(() => { if (!document.hidden && state.user) void refreshRoom(); }, 30000);
+  // Older history is loaded on demand, never by the polling loop.
+  for (const [name, group] of [['dm', false], ['room', true]]) {
+    $(`${name}-feed`).insertAdjacentHTML('beforebegin', `<button id="${name}-earlier" hidden>Load earlier messages</button>`);
+    $(`${name}-earlier`).onclick = async () => {
+      const button = $(`${name}-earlier`); button.disabled = true;
+      const epoch = group ? roomEpoch : dmEpoch, token = state.token;
+      try {
+        const existing = group ? roomMessages : threads[selectedPerson.id] || [];
+        const path = group ? `/communities/${currentRoom._id}/messages` : `/messages/${selectedPerson.id}`;
+        const messages = await api(path + cursorQuery(existing.find(m => !m.pending), 'before'));
+        if (token !== state.token || epoch !== (group ? roomEpoch : dmEpoch)) return;
+        if (group) { roomMessages = mergeMessages(roomMessages, messages); feed($('room-feed'), roomMessages, true); }
+        else { threads[selectedPerson.id] = mergeMessages(existing, messages); renderThread(); }
+        button.hidden = messages.length < 30;
+      } catch (error) { toast(error.message); } finally { button.disabled = false; }
+    };
+  }
   async function openDirect(userId) {
     if (!state.user) return openAuth(() => openDirect(userId));
+    workspaceUI.reset(); $("room-dialog").close();
     $("dm-dialog").showModal(); renderConversations(); schedulePoll();
     if (!people.some(p => p.id === userId)) await refreshConversations();
-    const person = people.find(p => p.id === userId);
+    let person = people.find(p => p.id === userId);
+    if (!person) { person = (await api("/connections")).find(p => p.id === userId); if (person) people.push(person); }
     if (!person) { $("dm-status").textContent = "Connect with this builder to start a conversation."; return; }
     ++dmEpoch; selectedPerson = person; $("dm-person").textContent = person.name;
     $("dm-compose").reset(); renderThread(); renderConversations(); cacheChats();
@@ -276,6 +306,7 @@ export function installSocialUI({ state, api, send, openAuth, toast, refreshNoti
   document.addEventListener("click", event => { const button = event.target.closest("[data-message]"); if (button) void openDirect(button.dataset.message); });
   return {
     restore,
+    activePoll, acceptSync, refreshWorkspace: workspaceUI.refreshOpen,
     openDirect,
     prepareTeam,
     async inviteQueued(saved) {

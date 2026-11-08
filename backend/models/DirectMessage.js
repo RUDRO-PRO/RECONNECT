@@ -4,3 +4,6 @@ schema.index({ conversationKey: 1, createdAt: -1 });
 schema.index({ senderId: 1, recipientId: 1, createdAt: 1 });
 schema.add({ clientMessageId: { type: String, maxlength: 100 } });
 module.exports = mongoose.model("DirectMessage", schema);
+
+module.exports.schema.index({ conversationKey: 1, createdAt: -1, _id: -1 });
+module.exports.schema.index({ recipientId: 1, read: 1, senderId: 1, createdAt: -1 });

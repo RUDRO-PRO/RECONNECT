@@ -1844,3 +1844,6 @@ dialog { overscroll-behavior: contain; }
 @media (prefers-reduced-motion: reduce) { #workspace-bar { transition: none; } }
 
 .team-workspace-title { font: inherit; padding: 0; border: 0; border-radius: 0; text-align: left; }
+.pagination { display: flex; align-items: center; justify-content: center; gap: 16px; padding: 24px; }
+#profiles-more, #teams-more { display: block; margin: 24px auto; }
+#profiles-more[hidden], #teams-more[hidden] { display: none; }

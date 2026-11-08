@@ -8,6 +8,7 @@ export function mergeMessages(existing, incoming) {
     a.createdAt.localeCompare(b.createdAt) || a._id.localeCompare(b._id));
 }
 
-export function messagePollDelay(open, hidden) {
-  return open && !hidden ? 2500 : 30000;
+export function cursorQuery(message, direction = 'after') {
+  if (!message?.createdAt || !/^[a-f\d]{24}$/i.test(message._id || '')) return '';
+  return '?' + new URLSearchParams({ [direction]: message.createdAt, [direction + 'Id']: message._id });
 }
