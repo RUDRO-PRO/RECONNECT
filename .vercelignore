@@ -4,6 +4,7 @@ backend/.env.*
 backend/tests
 frontend/tests
 *.png
+!frontend/public/icons/*.png
 .git
 **/node_modules
 backend/uploads
