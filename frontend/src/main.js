@@ -1,3 +1,4 @@
+import "./pwa.js";
 import { createApiClient } from "./apiClient.js";
 import { createPoller, debounce } from "./poller.js";
 import { installReadiness, teamControls } from "./readiness.js";

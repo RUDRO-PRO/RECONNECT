@@ -14,7 +14,8 @@
     "check:function": "node scripts/check-function-size.cjs",
     "db:initialize": "node scripts/initialize-database.cjs",
     "test:load": "node scripts/load-test.mjs",
-    "test:load:local": "node scripts/load-test-local.cjs"
+    "test:load:local": "node scripts/load-test-local.cjs",
+    "test": "npm --prefix frontend test && npm --prefix backend test"
   },
   "engines": {
     "node": "22.x"
